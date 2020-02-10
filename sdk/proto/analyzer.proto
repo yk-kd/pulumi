@@ -120,16 +120,23 @@ message AnalyzeDiagnostic {
 
 // AnalyzerInfo provides metadata about a PolicyPack inside an analyzer.
 message AnalyzerInfo {
-	string name = 1;                  // Name of the PolicyPack.
-	string displayName = 2;           // Pretty name for the PolicyPack.
-	repeated PolicyInfo policies = 3; // Metadata about policies contained in PolicyPack.
+    string name = 1;                  // Name of the PolicyPack.
+    string displayName = 2;           // Pretty name for the PolicyPack.
+    repeated PolicyInfo policies = 3; // Metadata about policies contained in PolicyPack.
 }
 
 // PolicyInfo provides metadata about an individual Policy within a Policy Pack.
 message PolicyInfo {
-	string name = 1;                       // Name of the policy.
-	string displayName = 2;                // Pretty name for the policy.
-	string description = 3;                // Description of policy rule. e.g., "encryption enabled."
-	string message = 4;                    // Message to display on policy violation, e.g., remediation steps.
-	EnforcementLevel enforcementLevel = 5; // Severity of the policy violation.
+    // ConfigInfo provides metadata about a Policy's config.
+    message ConfigInfo {
+        map<string, string> properties = 1; // Map of config property names to JSON schema.
+        repeated string required = 2;       // Required config properties.
+    }
+
+    string name = 1;                       // Name of the policy.
+    string displayName = 2;                // Pretty name for the policy.
+    string description = 3;                // Description of policy rule. e.g., "encryption enabled."
+    string message = 4;                    // Message to display on policy violation, e.g., remediation steps.
+    EnforcementLevel enforcementLevel = 5; // Severity of the policy violation.
+    ConfigInfo config = 6;                 // Config schema for the policy.
 }
