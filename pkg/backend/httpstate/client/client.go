@@ -538,10 +538,21 @@ func (pc *Client) PublishPolicyPack(ctx context.Context, orgName string,
 	// publishing the PolicyPack.
 	//
 
+	policies := make([]apitype.Policy, len(analyzerInfo.Policies))
+	for _, policy := range analyzerInfo.Policies {
+		policies = append(policies, apitype.Policy{
+			Name:             policy.Name,
+			DisplayName:      policy.DisplayName,
+			Description:      policy.Description,
+			EnforcementLevel: policy.EnforcementLevel,
+			Message:          policy.Message,
+		})
+	}
+
 	req := apitype.CreatePolicyPackRequest{
 		Name:        analyzerInfo.Name,
 		DisplayName: analyzerInfo.DisplayName,
-		Policies:    analyzerInfo.Policies,
+		Policies:    policies,
 	}
 
 	fmt.Printf("Publishing %s to %s\n", analyzerInfo.Name, orgName)

@@ -96,5 +96,33 @@ type AnalyzeDiagnostic struct {
 type AnalyzerInfo struct {
 	Name        string
 	DisplayName string
-	Policies    []apitype.Policy
+	Policies    []AnalyzerPolicyInfo
+}
+
+// AnalyzerPolicyInfo defines the metadata for an individual Policy within a Policy Pack.
+type AnalyzerPolicyInfo struct {
+	// Unique URL-safe name for the policy.  This is unique to a specific version
+	// of a Policy Pack.
+	Name        string
+	DisplayName string
+
+	// Description is used to provide more context about the purpose of the policy.
+	Description      string
+	EnforcementLevel apitype.EnforcementLevel
+
+	// Message is the message that will be displayed to end users when they violate
+	// this policy.
+	Message string
+
+	// Config is optional config schema for the policy.
+	Config *AnalyzerPolicyConfigInfo
+}
+
+// AnalyzerPolicyConfigInfo provides metadata about a policy's config.
+type AnalyzerPolicyConfigInfo struct {
+	// Map of config property names to JSON schema.
+	Properties map[string]string
+
+	// Required config properties
+	Required []string
 }

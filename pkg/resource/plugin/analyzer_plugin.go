@@ -254,19 +254,20 @@ func (a *analyzer) GetAnalyzerInfo() (AnalyzerInfo, error) {
 		return AnalyzerInfo{}, rpcError
 	}
 
-	policies := []apitype.Policy{}
+	policies := []AnalyzerPolicyInfo{}
 	for _, p := range resp.GetPolicies() {
 		enforcementLevel, err := convertEnforcementLevel(p.EnforcementLevel)
 		if err != nil {
 			return AnalyzerInfo{}, err
 		}
 
-		policies = append(policies, apitype.Policy{
+		policies = append(policies, AnalyzerPolicyInfo{
 			Name:             p.GetName(),
 			DisplayName:      p.GetDisplayName(),
 			Description:      p.GetDescription(),
 			EnforcementLevel: enforcementLevel,
 			Message:          p.GetMessage(),
+			Config:           convertConfig(p.GetConfig()),
 		})
 	}
 
@@ -372,6 +373,16 @@ func convertEnforcementLevel(el pulumirpc.EnforcementLevel) (apitype.Enforcement
 
 	default:
 		return "", fmt.Errorf("Invalid enforcement level %d", el)
+	}
+}
+
+func convertConfig(config *pulumirpc.PolicyInfo_ConfigInfo) *AnalyzerPolicyConfigInfo {
+	if config == nil {
+		return nil
+	}
+	return &AnalyzerPolicyConfigInfo{
+		Properties: config.GetProperties(),
+		Required:   config.GetRequired(),
 	}
 }
 
