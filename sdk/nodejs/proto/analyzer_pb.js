@@ -2917,7 +2917,7 @@ proto.pulumirpc.PolicyInfo.ConfigInfo.prototype.toObject = function(opt_includeI
  */
 proto.pulumirpc.PolicyInfo.ConfigInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
-    propertiesMap: (f = msg.getPropertiesMap()) ? f.toObject(includeInstance, undefined) : [],
+    properties: (f = msg.getProperties()) && google_protobuf_struct_pb.Struct.toObject(includeInstance, f),
     requiredList: jspb.Message.getRepeatedField(msg, 2)
   };
 
@@ -2956,10 +2956,9 @@ proto.pulumirpc.PolicyInfo.ConfigInfo.deserializeBinaryFromReader = function(msg
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = msg.getPropertiesMap();
-      reader.readMessage(value, function(message, reader) {
-        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString);
-         });
+      var value = new google_protobuf_struct_pb.Struct;
+      reader.readMessage(value,google_protobuf_struct_pb.Struct.deserializeBinaryFromReader);
+      msg.setProperties(value);
       break;
     case 2:
       var value = /** @type {string} */ (reader.readString());
@@ -2994,9 +2993,13 @@ proto.pulumirpc.PolicyInfo.ConfigInfo.prototype.serializeBinary = function() {
  */
 proto.pulumirpc.PolicyInfo.ConfigInfo.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getPropertiesMap(true);
-  if (f && f.getLength() > 0) {
-    f.serializeBinary(1, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
+  f = message.getProperties();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      google_protobuf_struct_pb.Struct.serializeBinaryToWriter
+    );
   }
   f = message.getRequiredList();
   if (f.length > 0) {
@@ -3009,20 +3012,32 @@ proto.pulumirpc.PolicyInfo.ConfigInfo.serializeBinaryToWriter = function(message
 
 
 /**
- * map<string, string> properties = 1;
- * @param {boolean=} opt_noLazyCreate Do not create the map if
- * empty, instead returning `undefined`
- * @return {!jspb.Map<string,string>}
+ * optional google.protobuf.Struct properties = 1;
+ * @return {?proto.google.protobuf.Struct}
  */
-proto.pulumirpc.PolicyInfo.ConfigInfo.prototype.getPropertiesMap = function(opt_noLazyCreate) {
-  return /** @type {!jspb.Map<string,string>} */ (
-      jspb.Message.getMapField(this, 1, opt_noLazyCreate,
-      null));
+proto.pulumirpc.PolicyInfo.ConfigInfo.prototype.getProperties = function() {
+  return /** @type{?proto.google.protobuf.Struct} */ (
+    jspb.Message.getWrapperField(this, google_protobuf_struct_pb.Struct, 1));
 };
 
 
-proto.pulumirpc.PolicyInfo.ConfigInfo.prototype.clearPropertiesMap = function() {
-  this.getPropertiesMap().clear();
+/** @param {?proto.google.protobuf.Struct|undefined} value */
+proto.pulumirpc.PolicyInfo.ConfigInfo.prototype.setProperties = function(value) {
+  jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+proto.pulumirpc.PolicyInfo.ConfigInfo.prototype.clearProperties = function() {
+  this.setProperties(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {!boolean}
+ */
+proto.pulumirpc.PolicyInfo.ConfigInfo.prototype.hasProperties = function() {
+  return jspb.Message.getField(this, 1) != null;
 };
 
 

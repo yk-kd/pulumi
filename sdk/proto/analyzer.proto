@@ -131,8 +131,8 @@ message AnalyzerInfo {
 message PolicyInfo {
     // ConfigInfo provides metadata about a Policy's config.
     message ConfigInfo {
-        map<string, string> properties = 1; // Map of config property names to JSON schema.
-        repeated string required = 2;       // Required config properties.
+        google.protobuf.Struct properties = 1; // Structure of properties to JSON schema.
+        repeated string required = 2;          // Required config properties.
     }
 
     string name = 1;                       // Name of the policy.
