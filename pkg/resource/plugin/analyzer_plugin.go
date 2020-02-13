@@ -18,10 +18,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/blang/semver"
 	pbempty "github.com/golang/protobuf/ptypes/empty"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 
@@ -306,6 +308,53 @@ func (a *analyzer) GetPluginInfo() (workspace.PluginInfo, error) {
 	}, nil
 }
 
+func (a *analyzer) Configure(policyConfig map[string]AnalyzerPolicyConfig) error {
+	label := fmt.Sprintf("%s.Configure(...)", a.label())
+	logging.V(7).Infof("%s executing", label)
+
+	c := make(map[string]*pulumirpc.ConfigureAnalyzerRequest_PolicyConfig)
+
+	for k, v := range policyConfig {
+		var el pulumirpc.EnforcementLevel
+		if v.EnforcementLevel != "" {
+			var err error
+			el, err = marshalEnforcementLevel(v.EnforcementLevel)
+			if err != nil {
+				return err
+			}
+		}
+
+		props, err := marshalConfigProperties(v.Properties)
+		if err != nil {
+			return errors.Wrap(err, "marshalling config properties")
+		}
+
+		c[k] = &pulumirpc.ConfigureAnalyzerRequest_PolicyConfig{
+			EnforcementLevel:        el,
+			EnforcementLevelDefined: v.EnforcementLevel != "",
+			Properties:              props,
+		}
+	}
+
+	_, err := a.client.Configure(a.ctx.Request(), &pulumirpc.ConfigureAnalyzerRequest{
+		PolicyConfig: c,
+	})
+	if err != nil {
+		rpcError := rpcerror.Convert(err)
+		// Handle the case where the policy pack doesn't implement a recent enough
+		// AnalyzerService to support the Configure method. Ignore the error as it
+		// just means the analyzer isn't capable of being configured in this way.
+		if rpcError.Code() == codes.Unimplemented {
+			logging.V(7).Infof("%s.Configure(...) is unimplemented, skipping: err=%v", a.label(), rpcError)
+			return nil
+		}
+
+		logging.V(7).Infof("%s.Configure(...) failed: err=%v", a.label(), rpcError)
+		return rpcError
+	}
+	return nil
+}
+
 // Close tears down the underlying plugin RPC connection and process.
 func (a *analyzer) Close() error {
 	return a.plug.Close()
@@ -354,6 +403,91 @@ func marshalProvider(provider *AnalyzerProviderResource) (*pulumirpc.AnalyzerPro
 		Name:       string(provider.Name),
 		Properties: props,
 	}, nil
+}
+
+func marshalEnforcementLevel(el apitype.EnforcementLevel) (pulumirpc.EnforcementLevel, error) {
+	switch el {
+	case apitype.Advisory:
+		return pulumirpc.EnforcementLevel_ADVISORY, nil
+	case apitype.Mandatory:
+		return pulumirpc.EnforcementLevel_MANDATORY, nil
+
+	default:
+		return 0, fmt.Errorf("Invalid enforcement level %s", el)
+	}
+}
+
+func marshalConfigProperties(props map[string]interface{}) (*structpb.Struct, error) {
+	fields := make(map[string]*structpb.Value)
+	for k, v := range props {
+		m, err := marshalConfigPropertyValue(v)
+		if err != nil {
+			return nil, err
+		} else if m != nil {
+			fields[k] = m
+		}
+	}
+	return &structpb.Struct{
+		Fields: fields,
+	}, nil
+}
+
+func marshalConfigPropertyValue(v interface{}) (*structpb.Value, error) {
+	if v == nil {
+		return &structpb.Value{
+			Kind: &structpb.Value_NullValue{
+				NullValue: structpb.NullValue_NULL_VALUE,
+			},
+		}, nil
+	}
+
+	switch val := v.(type) {
+	case bool:
+		return &structpb.Value{
+			Kind: &structpb.Value_BoolValue{
+				BoolValue: val,
+			},
+		}, nil
+	case float64:
+		return &structpb.Value{
+			Kind: &structpb.Value_NumberValue{
+				NumberValue: val,
+			},
+		}, nil
+	case string:
+		return &structpb.Value{
+			Kind: &structpb.Value_StringValue{
+				StringValue: val,
+			},
+		}, nil
+	case []interface{}:
+		var elems []*structpb.Value
+		for _, elem := range val {
+			e, err := marshalConfigPropertyValue(elem)
+			if err != nil {
+				return nil, err
+			}
+			elems = append(elems, e)
+		}
+		return &structpb.Value{
+			Kind: &structpb.Value_ListValue{
+				ListValue: &structpb.ListValue{Values: elems},
+			},
+		}, nil
+	case map[string]interface{}:
+		obj, err := marshalConfigProperties(val)
+		if err != nil {
+			return nil, err
+		}
+		return &structpb.Value{
+			Kind: &structpb.Value_StructValue{
+				StructValue: obj,
+			},
+		}, nil
+	}
+
+	contract.Failf("Unrecognized config property value: %v (type=%v)", v, reflect.TypeOf(v))
+	return nil, nil
 }
 
 func convertURNs(urns []resource.URN) []string {
