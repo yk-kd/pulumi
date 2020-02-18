@@ -116,14 +116,17 @@ type AnalyzerPolicyInfo struct {
 	// this policy.
 	Message string
 
-	// Config is optional config schema for the policy.
-	Config *AnalyzerPolicyConfigInfo
+	// ConfigSchema is optional config schema for the policy.
+	ConfigSchema *AnalyzerPolicyConfigSchema
 }
 
-// AnalyzerPolicyConfigInfo provides metadata about a policy's config.
-type AnalyzerPolicyConfigInfo struct {
+// JSONSchema represents a JSON schema.
+type JSONSchema map[string]interface{}
+
+// AnalyzerPolicyConfigSchema provides metadata about a policy's configuration.
+type AnalyzerPolicyConfigSchema struct {
 	// Map of config property names to JSON schema.
-	Properties map[string]string
+	Properties map[string]JSONSchema
 
 	// Required config properties
 	Required []string
@@ -133,6 +136,6 @@ type AnalyzerPolicyConfigInfo struct {
 type AnalyzerPolicyConfig struct {
 	// Configured enforcement level for the policy.
 	EnforcementLevel apitype.EnforcementLevel
-	// Configuration properties of the policy.
+	// Configured properties of the policy.
 	Properties map[string]interface{}
 }

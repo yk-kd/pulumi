@@ -94,6 +94,15 @@ const (
 	Mandatory EnforcementLevel = "mandatory"
 )
 
+// IsValid returns true if the EnforcementLevel is a valid value.
+func (el EnforcementLevel) IsValid() bool {
+	switch el {
+	case Advisory, Mandatory:
+		return true
+	}
+	return false
+}
+
 // GetPolicyPackResponse is the response to get a specific Policy Pack's
 // metadata and policies.
 type GetPolicyPackResponse struct {

@@ -269,7 +269,7 @@ func (a *analyzer) GetAnalyzerInfo() (AnalyzerInfo, error) {
 			Description:      p.GetDescription(),
 			EnforcementLevel: enforcementLevel,
 			Message:          p.GetMessage(),
-			Config:           convertConfig(p.GetConfig()),
+			ConfigSchema:     convertConfigSchema(p.GetConfigSchema()),
 		})
 	}
 
@@ -312,27 +312,17 @@ func (a *analyzer) Configure(policyConfig map[string]AnalyzerPolicyConfig) error
 	label := fmt.Sprintf("%s.Configure(...)", a.label())
 	logging.V(7).Infof("%s executing", label)
 
-	c := make(map[string]*pulumirpc.ConfigureAnalyzerRequest_PolicyConfig)
+	c := make(map[string]*pulumirpc.PolicyConfig)
 
 	for k, v := range policyConfig {
 		var el pulumirpc.EnforcementLevel
 		if v.EnforcementLevel != "" {
-			var err error
-			el, err = marshalEnforcementLevel(v.EnforcementLevel)
-			if err != nil {
-				return err
-			}
+			el = marshalEnforcementLevel(v.EnforcementLevel)
 		}
-
-		props, err := marshalConfigProperties(v.Properties)
-		if err != nil {
-			return errors.Wrap(err, "marshalling config properties")
-		}
-
-		c[k] = &pulumirpc.ConfigureAnalyzerRequest_PolicyConfig{
+		c[k] = &pulumirpc.PolicyConfig{
 			EnforcementLevel:        el,
 			EnforcementLevelDefined: v.EnforcementLevel != "",
-			Properties:              props,
+			Properties:              marshalMap(v.Properties),
 		}
 	}
 
@@ -405,40 +395,37 @@ func marshalProvider(provider *AnalyzerProviderResource) (*pulumirpc.AnalyzerPro
 	}, nil
 }
 
-func marshalEnforcementLevel(el apitype.EnforcementLevel) (pulumirpc.EnforcementLevel, error) {
+func marshalEnforcementLevel(el apitype.EnforcementLevel) pulumirpc.EnforcementLevel {
 	switch el {
 	case apitype.Advisory:
-		return pulumirpc.EnforcementLevel_ADVISORY, nil
+		return pulumirpc.EnforcementLevel_ADVISORY
 	case apitype.Mandatory:
-		return pulumirpc.EnforcementLevel_MANDATORY, nil
-
-	default:
-		return 0, fmt.Errorf("Invalid enforcement level %s", el)
+		return pulumirpc.EnforcementLevel_MANDATORY
 	}
+	contract.Failf("Unrecognized enforcement level %s", el)
+	return 0
 }
 
-func marshalConfigProperties(props map[string]interface{}) (*structpb.Struct, error) {
+func marshalMap(m map[string]interface{}) *structpb.Struct {
 	fields := make(map[string]*structpb.Value)
-	for k, v := range props {
-		m, err := marshalConfigPropertyValue(v)
-		if err != nil {
-			return nil, err
-		} else if m != nil {
-			fields[k] = m
+	for k, v := range m {
+		val := marshalMapValue(v)
+		if val != nil {
+			fields[k] = val
 		}
 	}
 	return &structpb.Struct{
 		Fields: fields,
-	}, nil
+	}
 }
 
-func marshalConfigPropertyValue(v interface{}) (*structpb.Value, error) {
+func marshalMapValue(v interface{}) *structpb.Value {
 	if v == nil {
 		return &structpb.Value{
 			Kind: &structpb.Value_NullValue{
 				NullValue: structpb.NullValue_NULL_VALUE,
 			},
-		}, nil
+		}
 	}
 
 	switch val := v.(type) {
@@ -447,47 +434,74 @@ func marshalConfigPropertyValue(v interface{}) (*structpb.Value, error) {
 			Kind: &structpb.Value_BoolValue{
 				BoolValue: val,
 			},
-		}, nil
+		}
 	case float64:
 		return &structpb.Value{
 			Kind: &structpb.Value_NumberValue{
 				NumberValue: val,
 			},
-		}, nil
+		}
 	case string:
 		return &structpb.Value{
 			Kind: &structpb.Value_StringValue{
 				StringValue: val,
 			},
-		}, nil
+		}
 	case []interface{}:
-		var elems []*structpb.Value
-		for _, elem := range val {
-			e, err := marshalConfigPropertyValue(elem)
-			if err != nil {
-				return nil, err
-			}
-			elems = append(elems, e)
+		arr := make([]*structpb.Value, len(val))
+		for i, e := range val {
+			arr[i] = marshalMapValue(e)
 		}
 		return &structpb.Value{
 			Kind: &structpb.Value_ListValue{
-				ListValue: &structpb.ListValue{Values: elems},
+				ListValue: &structpb.ListValue{Values: arr},
 			},
-		}, nil
-	case map[string]interface{}:
-		obj, err := marshalConfigProperties(val)
-		if err != nil {
-			return nil, err
 		}
+	case map[string]interface{}:
 		return &structpb.Value{
 			Kind: &structpb.Value_StructValue{
-				StructValue: obj,
+				StructValue: marshalMap(val),
 			},
-		}, nil
+		}
 	}
 
-	contract.Failf("Unrecognized config property value: %v (type=%v)", v, reflect.TypeOf(v))
-	return nil, nil
+	contract.Failf("Unrecognized value: %v (type=%v)", v, reflect.TypeOf(v))
+	return nil
+}
+
+func unmarshalMap(s *structpb.Struct) map[string]interface{} {
+	if s == nil {
+		return nil
+	}
+	result := make(map[string]interface{})
+	for k, v := range s.Fields {
+		result[k] = unmarshalMapValue(v)
+	}
+	return result
+}
+
+func unmarshalMapValue(v *structpb.Value) interface{} {
+	switch val := v.Kind.(type) {
+	case *structpb.Value_NullValue:
+		return nil
+	case *structpb.Value_BoolValue:
+		return val.BoolValue
+	case *structpb.Value_NumberValue:
+		return val.NumberValue
+	case *structpb.Value_StringValue:
+		return val.StringValue
+	case *structpb.Value_ListValue:
+		arr := make([]interface{}, len(val.ListValue.Values))
+		for i, e := range val.ListValue.Values {
+			arr[i] = unmarshalMapValue(e)
+		}
+		return arr
+	case *structpb.Value_StructValue:
+		return unmarshalMap(val.StructValue)
+	}
+
+	contract.Failf("Unrecognized kind: %v (type=%v)", v.Kind, reflect.TypeOf(v.Kind))
+	return nil
 }
 
 func convertURNs(urns []resource.URN) []string {
@@ -510,13 +524,19 @@ func convertEnforcementLevel(el pulumirpc.EnforcementLevel) (apitype.Enforcement
 	}
 }
 
-func convertConfig(config *pulumirpc.PolicyInfo_ConfigInfo) *AnalyzerPolicyConfigInfo {
-	if config == nil {
+func convertConfigSchema(schema *pulumirpc.PolicyConfigSchema) *AnalyzerPolicyConfigSchema {
+	if schema == nil {
 		return nil
 	}
-	return &AnalyzerPolicyConfigInfo{
-		Properties: config.GetProperties(),
-		Required:   config.GetRequired(),
+
+	props := make(map[string]JSONSchema)
+	for k, v := range schema.GetProperties() {
+		props[k] = unmarshalMap(v)
+	}
+
+	return &AnalyzerPolicyConfigSchema{
+		Properties: props,
+		Required:   schema.GetRequired(),
 	}
 }
 

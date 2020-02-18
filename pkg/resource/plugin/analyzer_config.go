@@ -17,10 +17,12 @@ package plugin
 import (
 	"encoding/json"
 	"io/ioutil"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi/pkg/apitype"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 // LoadPolicyPackConfigFromFile loads the JSON config from a file.
@@ -37,12 +39,53 @@ func parsePolicyPackConfig(b []byte) (map[string]AnalyzerPolicyConfig, error) {
 	if err := json.Unmarshal(b, &config); err != nil {
 		return nil, err
 	}
-	// TODO
-	return make(map[string]AnalyzerPolicyConfig), nil
+	result := make(map[string]AnalyzerPolicyConfig)
+	for k, v := range config {
+		var enforcementLevel apitype.EnforcementLevel
+		var properties map[string]interface{}
+		switch val := v.(type) {
+		case string:
+			el := apitype.EnforcementLevel(val)
+			if !el.IsValid() {
+				return nil, errors.Errorf("Value %q for %q is not a valid enforcement level", val, k)
+			}
+			enforcementLevel = el
+		case map[string]interface{}:
+			if elUnknown, hasEnforcementLevel := val["enforcementLevel"]; hasEnforcementLevel {
+				elStr, isStr := elUnknown.(string)
+				if !isStr {
+					return nil, errors.Errorf("Value %v for %q is not a valid enforcement level", elUnknown, k)
+				}
+				el := apitype.EnforcementLevel(elStr)
+				if !el.IsValid() {
+					return nil, errors.Errorf("Value %q for %q is not a valid enforcement level", elStr, k)
+				}
+				enforcementLevel = el
+				// Remove enforcementLevel from the map.
+				delete(val, "enforcementLevel")
+			}
+			if len(val) > 0 {
+				properties = val
+			}
+		default:
+			return nil, errors.Errorf("Value %v for %q is not a valid value; must be a string or object", v, k)
+		}
+
+		// Don't bother including empty configs.
+		if enforcementLevel == "" && len(properties) == 0 {
+			continue
+		}
+
+		result[k] = AnalyzerPolicyConfig{
+			EnforcementLevel: enforcementLevel,
+			Properties:       properties, // TODO is it OK for this to be nil?
+		}
+	}
+	return result, nil
 }
 
 // CheckRequired checks the given config to ensure all required properties are set.
-func CheckRequired(policies []AnalyzerPolicyInfo, config map[string]*AnalyzerPolicyConfig) error {
+func CheckRequired(policies []AnalyzerPolicyInfo, config map[string]AnalyzerPolicyConfig) error {
 	var result error
 
 	// TODO provide a more elegant way of returning multiple errors, so we can display all of these
@@ -51,10 +94,10 @@ func CheckRequired(policies []AnalyzerPolicyInfo, config map[string]*AnalyzerPol
 	// check this?
 	for _, policy := range policies {
 		// If the policy doesn't have config schema, skip.
-		if policy.Config == nil {
+		if policy.ConfigSchema == nil {
 			continue
 		}
-		for _, required := range policy.Config.Required {
+		for _, required := range policy.ConfigSchema.Required {
 			givenConfig, hasGivenConfig := config[policy.Name]
 			if !hasGivenConfig {
 				result = multierror.Append(
@@ -70,29 +113,77 @@ func CheckRequired(policies []AnalyzerPolicyInfo, config map[string]*AnalyzerPol
 	return result
 }
 
+// ValidateConfig TODO
+func ValidateConfig(
+	policies []AnalyzerPolicyInfo, config map[string]AnalyzerPolicyConfig) (map[string][]string, error) {
+	policyToErrors := make(map[string][]string)
+	for _, policy := range policies {
+		if policy.ConfigSchema == nil {
+			continue
+		}
+		var props map[string]interface{}
+		if c, ok := config[policy.Name]; ok {
+			props = c.Properties
+		}
+		result, err := validatePolicyConfig(*policy.ConfigSchema, props)
+		if err != nil {
+			return nil, err
+		}
+		policyToErrors[policy.Name] = result
+	}
+	return policyToErrors, nil
+}
+
+func validatePolicyConfig(schema AnalyzerPolicyConfigSchema, config map[string]interface{}) ([]string, error) {
+	var errors []string
+	schemaLoader := gojsonschema.NewGoLoader(convertSchema(schema))
+	documentLoader := gojsonschema.NewGoLoader(config)
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return nil, err
+	}
+	if !result.Valid() {
+		for _, err := range result.Errors() {
+			// Root errors are prefixed with "(root):" (e.g. "(root): foo is required"),
+			// but that's just noise for our purposes, so we trim it from the message.
+			msg := strings.TrimPrefix(err.String(), "(root): ")
+			errors = append(errors, msg)
+		}
+	}
+	return errors, nil
+}
+
+func convertSchema(schema AnalyzerPolicyConfigSchema) map[string]interface{} {
+	result := make(map[string]interface{})
+	result["type"] = "object"
+	if len(schema.Properties) > 0 {
+		result["properties"] = schema.Properties
+	}
+	if len(schema.Required) > 0 {
+		result["required"] = schema.Required
+	}
+	return result
+}
+
 // CreateConfigWithDefaults returns a new map filled-in with defaults from the policy metadata.
-func CreateConfigWithDefaults(policies []AnalyzerPolicyInfo) (map[string]*AnalyzerPolicyConfig, error) {
-	result := make(map[string]*AnalyzerPolicyConfig)
+func CreateConfigWithDefaults(policies []AnalyzerPolicyInfo) (map[string]AnalyzerPolicyConfig, error) {
+	result := make(map[string]AnalyzerPolicyConfig)
 
 	// Prepare the resulting config with all defaults from the policy metadata.
 	for _, policy := range policies {
 		var props map[string]interface{}
 
 		// Set default values from the schema.
-		if policy.Config != nil {
+		if policy.ConfigSchema != nil {
 			props = make(map[string]interface{})
-			for k, v := range policy.Config.Properties {
-				schema, err := unmarshalConfigSchema([]byte(v))
-				if err != nil {
-					return nil, err
-				}
-				if val, ok := schema["default"]; ok {
+			for k, v := range policy.ConfigSchema.Properties {
+				if val, ok := v["default"]; ok {
 					props[k] = val
 				}
 			}
 		}
 
-		result[policy.Name] = &AnalyzerPolicyConfig{
+		result[policy.Name] = AnalyzerPolicyConfig{
 			EnforcementLevel: policy.EnforcementLevel,
 			Properties:       props,
 		}
@@ -102,10 +193,10 @@ func CreateConfigWithDefaults(policies []AnalyzerPolicyInfo) (map[string]*Analyz
 }
 
 // ReconcilePolicyPackConfig takes the policy pack metadata, which contains default values and config schema,
-// and reconciles this with the given config, producing a new config with all default values filled-in and then
-// any given config values filled-in on top, to be passed to the analyzer.
+// and reconciles this with the given config, producing a new config that first has all default values filled-in
+// followed by overwriting any values from the given config.
 func ReconcilePolicyPackConfig(
-	policies []AnalyzerPolicyInfo, config map[string]*AnalyzerPolicyConfig) (map[string]*AnalyzerPolicyConfig, error) {
+	policies []AnalyzerPolicyInfo, config map[string]AnalyzerPolicyConfig) (map[string]AnalyzerPolicyConfig, error) {
 
 	// First, loop through the given config, and ensure we have values for all required properties.
 	if err := CheckRequired(policies, config); err != nil {
@@ -148,14 +239,6 @@ func ReconcilePolicyPackConfig(
 	}
 
 	return result, nil
-}
-
-func unmarshalConfigSchema(b []byte) (map[string]interface{}, error) {
-	schema := make(map[string]interface{})
-	if err := json.Unmarshal(b, &schema); err != nil {
-		return nil, err
-	}
-	return schema, nil
 }
 
 type policyConfig struct {

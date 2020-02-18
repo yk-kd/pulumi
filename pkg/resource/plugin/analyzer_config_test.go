@@ -14,12 +14,151 @@
 package plugin
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
 
+	"github.com/pulumi/pulumi/pkg/apitype"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestParsePolicyPackConfigSuccess(t *testing.T) {
+	tests := []struct {
+		JSON     string
+		Expected map[string]AnalyzerPolicyConfig
+	}{
+		{
+			JSON:     `{}`,
+			Expected: map[string]AnalyzerPolicyConfig{},
+		},
+		{
+			JSON: `{"foo":"advisory"}`,
+			Expected: map[string]AnalyzerPolicyConfig{
+				"foo": AnalyzerPolicyConfig{
+					EnforcementLevel: apitype.Advisory,
+				},
+			},
+		},
+		{
+			JSON: `{"foo":"mandatory"}`,
+			Expected: map[string]AnalyzerPolicyConfig{
+				"foo": AnalyzerPolicyConfig{
+					EnforcementLevel: apitype.Mandatory,
+				},
+			},
+		},
+		{
+			JSON: `{"foo":{"enforcementLevel":"advisory"}}`,
+			Expected: map[string]AnalyzerPolicyConfig{
+				"foo": AnalyzerPolicyConfig{
+					EnforcementLevel: apitype.Advisory,
+				},
+			},
+		},
+		{
+			JSON: `{"foo":{"enforcementLevel":"mandatory"}}`,
+			Expected: map[string]AnalyzerPolicyConfig{
+				"foo": AnalyzerPolicyConfig{
+					EnforcementLevel: apitype.Mandatory,
+				},
+			},
+		},
+		{
+			JSON: `{"foo":{"enforcementLevel":"advisory","bar":"blah"}}`,
+			Expected: map[string]AnalyzerPolicyConfig{
+				"foo": AnalyzerPolicyConfig{
+					EnforcementLevel: apitype.Advisory,
+					Properties: map[string]interface{}{
+						"bar": "blah",
+					},
+				},
+			},
+		},
+		{
+			JSON:     `{"foo":{}}`,
+			Expected: map[string]AnalyzerPolicyConfig{},
+		},
+		{
+			JSON: `{"foo":{"bar":"blah"}}`,
+			Expected: map[string]AnalyzerPolicyConfig{
+				"foo": AnalyzerPolicyConfig{
+					Properties: map[string]interface{}{
+						"bar": "blah",
+					},
+				},
+			},
+		},
+		{
+			JSON: `{"policy1":{"foo":"one"},"policy2":{"foo":"two"}}`,
+			Expected: map[string]AnalyzerPolicyConfig{
+				"policy1": AnalyzerPolicyConfig{
+					Properties: map[string]interface{}{
+						"foo": "one",
+					},
+				},
+				"policy2": AnalyzerPolicyConfig{
+					Properties: map[string]interface{}{
+						"foo": "two",
+					},
+				},
+			},
+		},
+		{
+			JSON: `{"all":"mandatory","policy1":{"foo":"one"},"policy2":{"foo":"two"}}`,
+			Expected: map[string]AnalyzerPolicyConfig{
+				"all": AnalyzerPolicyConfig{
+					EnforcementLevel: apitype.Mandatory,
+				},
+				"policy1": AnalyzerPolicyConfig{
+					Properties: map[string]interface{}{
+						"foo": "one",
+					},
+				},
+				"policy2": AnalyzerPolicyConfig{
+					Properties: map[string]interface{}{
+						"foo": "two",
+					},
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%v", test), func(t *testing.T) {
+			result, err := parsePolicyPackConfig([]byte(test.JSON))
+			assert.NoError(t, err)
+			assert.Equal(t, test.Expected, result)
+		})
+	}
+}
+
+func TestParsePolicyPackConfigFail(t *testing.T) {
+	tests := []string{
+		``,
+		`{"foo":[]}`,
+		`{"foo":null}`,
+		`{"foo":undefined}`,
+		`{"foo":0}`,
+		`{"foo":true}`,
+		`{"foo":false}`,
+		`{"foo":""}`,
+		`{"foo":"bar"}`,
+		`{"foo":{"enforcementLevel":[]}}`,
+		`{"foo":{"enforcementLevel":null}}`,
+		`{"foo":{"enforcementLevel":undefined}}`,
+		`{"foo":{"enforcementLevel":0}}`,
+		`{"foo":{"enforcementLevel":true}}`,
+		`{"foo":{"enforcementLevel":false}}`,
+		`{"foo":{"enforcementLevel":{}}}`,
+		`{"foo":{"enforcementLevel":""}}`,
+		`{"foo":{"enforcementLevel":"bar"}}`,
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%v", test), func(t *testing.T) {
+			result, err := parsePolicyPackConfig([]byte(test))
+			assert.Nil(t, result)
+			assert.Error(t, err)
+		})
+	}
+}
 
 func TestCreateConfigWithDefaultsEnforcementLevel(t *testing.T) {
 	tests := []struct {
@@ -60,12 +199,12 @@ func TestCreateConfigWithDefaults(t *testing.T) {
 				{
 					Name:             "policy",
 					EnforcementLevel: "advisory",
-					Config: &AnalyzerPolicyConfigInfo{
-						Properties: map[string]string{
-							"foo": asJSON(t, map[string]interface{}{
+					ConfigSchema: &AnalyzerPolicyConfigSchema{
+						Properties: map[string]JSONSchema{
+							"foo": JSONSchema{
 								"type":    "string",
 								"default": "bar",
-							}),
+							},
 						},
 					},
 				},
@@ -84,12 +223,12 @@ func TestCreateConfigWithDefaults(t *testing.T) {
 				{
 					Name:             "policy",
 					EnforcementLevel: "advisory",
-					Config: &AnalyzerPolicyConfigInfo{
-						Properties: map[string]string{
-							"foo": asJSON(t, map[string]interface{}{
+					ConfigSchema: &AnalyzerPolicyConfigSchema{
+						Properties: map[string]JSONSchema{
+							"foo": JSONSchema{
 								"type":    "number",
-								"default": 42,
-							}),
+								"default": float64(42),
+							},
 						},
 					},
 				},
@@ -114,47 +253,92 @@ func TestCreateConfigWithDefaults(t *testing.T) {
 	}
 }
 
-func TestReconcileSuccess(t *testing.T) {
+func TestValidatePolicyConfig(t *testing.T) {
 	tests := []struct {
-		Policies []AnalyzerPolicyInfo
-		Config   map[string]*AnalyzerPolicyConfig
-		Expected map[string]*AnalyzerPolicyConfig
+		Test     string
+		Schema   AnalyzerPolicyConfigSchema
+		Config   map[string]interface{}
+		Expected []string
 	}{
 		{
-			Policies: []AnalyzerPolicyInfo{
-				{
-					Name:             "policy",
-					EnforcementLevel: "advisory",
-					Config: &AnalyzerPolicyConfigInfo{
-						Properties: map[string]string{
-							"foo": asJSON(t, map[string]interface{}{
-								"type":    "string",
-								"default": "bar",
-							}),
-						},
+			Test: "Required property missing",
+			Schema: AnalyzerPolicyConfigSchema{
+				Properties: map[string]JSONSchema{
+					"foo": JSONSchema{
+						"type": "string",
+					},
+				},
+				Required: []string{"foo"},
+			},
+			Config:   map[string]interface{}{},
+			Expected: []string{"foo is required"},
+		},
+		{
+			Test: "Invalid type",
+			Schema: AnalyzerPolicyConfigSchema{
+				Properties: map[string]JSONSchema{
+					"foo": JSONSchema{
+						"type": "string",
 					},
 				},
 			},
-			Config: map[string]*AnalyzerPolicyConfig{},
-			Expected: map[string]*AnalyzerPolicyConfig{
-				"policy": &AnalyzerPolicyConfig{
-					EnforcementLevel: "advisory",
-					Properties: map[string]interface{}{
-						"foo": "bar",
-					},
-				},
+			Config: map[string]interface{}{
+				"foo": 1,
 			},
+			Expected: []string{"foo: Invalid type. Expected: string, given: integer"},
 		},
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("%v", test), func(t *testing.T) {
-			result, err := ReconcilePolicyPackConfig(test.Policies, test.Config)
+		t.Run(test.Test, func(t *testing.T) {
+			result, err := validatePolicyConfig(test.Schema, test.Config)
 			assert.NoError(t, err)
 			assert.Equal(t, test.Expected, result)
 		})
 	}
 }
+
+// func TestReconcileSuccess(t *testing.T) {
+// 	tests := []struct {
+// 		Policies []AnalyzerPolicyInfo
+// 		Config   map[string]*AnalyzerPolicyConfig
+// 		Expected map[string]*AnalyzerPolicyConfig
+// 	}{
+// 		{
+// 			Policies: []AnalyzerPolicyInfo{
+// 				{
+// 					Name:             "policy",
+// 					EnforcementLevel: "advisory",
+// 					ConfigSchema: &AnalyzerPolicyConfigSchema{
+// 						Properties: map[string]JSONSchema{
+// 							"foo": JSONSchema{
+// 								"type":    "string",
+// 								"default": "bar",
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 			Config: map[string]*AnalyzerPolicyConfig{},
+// 			Expected: map[string]*AnalyzerPolicyConfig{
+// 				"policy": &AnalyzerPolicyConfig{
+// 					EnforcementLevel: "advisory",
+// 					Properties: map[string]interface{}{
+// 						"foo": "bar",
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
+
+// 	for _, test := range tests {
+// 		t.Run(fmt.Sprintf("%v", test), func(t *testing.T) {
+// 			result, err := ReconcilePolicyPackConfig(test.Policies, test.Config)
+// 			assert.NoError(t, err)
+// 			assert.Equal(t, test.Expected, result)
+// 		})
+// 	}
+// }
 
 // func TestReconcileFail(t *testing.T) {
 // 	tests := []struct {
@@ -167,9 +351,3 @@ func TestReconcileSuccess(t *testing.T) {
 
 // 	}
 // }
-
-func asJSON(t *testing.T, schema map[string]interface{}) string {
-	b, err := json.Marshal(schema)
-	assert.NoError(t, err)
-	return string(b)
-}
