@@ -234,9 +234,9 @@ type previewStep struct {
 	// Provider is the provider that will perform this step.
 	Provider string `json:"provider,omitempty"`
 	// OldState is the old state for this resource, if appropriate given the operation type.
-	OldState *apitype.ResourceV3 `json:"oldState,omitempty"`
+	OldState *apitype.ResourceV4 `json:"oldState,omitempty"`
 	// NewState is the new state for this resource, if appropriate given the operation type.
-	NewState *apitype.ResourceV3 `json:"newState,omitempty"`
+	NewState *apitype.ResourceV4 `json:"newState,omitempty"`
 	// DiffReasons is a list of keys that are causing a diff (for updating steps only).
 	DiffReasons []resource.PropertyKey `json:"diffReasons,omitempty"`
 	// ReplaceReasons is a list of keys that are causing replacement (for replacement steps only).

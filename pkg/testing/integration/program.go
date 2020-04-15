@@ -63,8 +63,8 @@ const DotNetRuntime = "dotnet"
 // RuntimeValidationStackInfo contains details related to the stack that runtime validation logic may want to use.
 type RuntimeValidationStackInfo struct {
 	StackName    tokens.QName
-	Deployment   *apitype.DeploymentV3
-	RootResource apitype.ResourceV3
+	Deployment   *apitype.DeploymentV4
+	RootResource apitype.ResourceV4
 	Outputs      map[string]interface{}
 	Events       []apitype.EngineEvent
 }
@@ -498,7 +498,7 @@ func GetLogs(
 	stackInfo RuntimeValidationStackInfo,
 	query operations.LogQuery) *[]operations.LogEntry {
 
-	snap, err := stack.DeserializeDeploymentV3(*stackInfo.Deployment, stack.DefaultSecretsProvider)
+	snap, err := stack.DeserializeDeploymentV4(*stackInfo.Deployment, stack.DefaultSecretsProvider)
 	assert.NoError(t, err)
 
 	tree := operations.NewResourceTree(snap.Resources)
@@ -1366,13 +1366,13 @@ func (pt *ProgramTester) performExtraRuntimeValidation(
 	if err = json.NewDecoder(f).Decode(&untypedDeployment); err != nil {
 		return err
 	}
-	var deployment apitype.DeploymentV3
+	var deployment apitype.DeploymentV4
 	if err = json.Unmarshal(untypedDeployment.Deployment, &deployment); err != nil {
 		return err
 	}
 
 	// Get the root resource and outputs from the deployment
-	var rootResource apitype.ResourceV3
+	var rootResource apitype.ResourceV4
 	var outputs map[string]interface{}
 	for _, res := range deployment.Resources {
 		if res.Type == resource.RootStackType {

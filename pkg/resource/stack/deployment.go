@@ -56,7 +56,7 @@ var (
 )
 
 // SerializeDeployment serializes an entire snapshot as a deploy record.
-func SerializeDeployment(snap *deploy.Snapshot, sm secrets.Manager) (*apitype.DeploymentV3, error) {
+func SerializeDeployment(snap *deploy.Snapshot, sm secrets.Manager) (*apitype.DeploymentV4, error) {
 	contract.Require(snap != nil, "snap")
 
 	// Capture the version information into a manifest.
@@ -95,7 +95,7 @@ func SerializeDeployment(snap *deploy.Snapshot, sm secrets.Manager) (*apitype.De
 	}
 
 	// Serialize all vertices and only include a vertex section if non-empty.
-	var resources []apitype.ResourceV3
+	var resources []apitype.ResourceV4
 	for _, res := range snap.Resources {
 		sres, err := SerializeResource(res, enc)
 		if err != nil {
@@ -104,7 +104,7 @@ func SerializeDeployment(snap *deploy.Snapshot, sm secrets.Manager) (*apitype.De
 		resources = append(resources, sres)
 	}
 
-	var operations []apitype.OperationV2
+	var operations []apitype.OperationV3
 	for _, op := range snap.PendingOperations {
 		sop, err := SerializeOperation(op, enc)
 		if err != nil {
@@ -127,7 +127,7 @@ func SerializeDeployment(snap *deploy.Snapshot, sm secrets.Manager) (*apitype.De
 		}
 	}
 
-	return &apitype.DeploymentV3{
+	return &apitype.DeploymentV4{
 		Manifest:          manifest,
 		Resources:         resources,
 		SecretsProviders:  secretsProvider,
@@ -149,7 +149,7 @@ func DeserializeUntypedDeployment(
 		return nil, ErrDeploymentSchemaVersionTooOld
 	}
 
-	var v3deployment apitype.DeploymentV3
+	var v4deployment apitype.DeploymentV4
 	switch deployment.Version {
 	case 1:
 		var v1deployment apitype.DeploymentV1
@@ -157,26 +157,34 @@ func DeserializeUntypedDeployment(
 			return nil, err
 		}
 		v2deployment := migrate.UpToDeploymentV2(v1deployment)
-		v3deployment = migrate.UpToDeploymentV3(v2deployment)
+		v3deployment := migrate.UpToDeploymentV3(v2deployment)
+		v4deployment = migrate.UpToDeploymentV4(v3deployment)
 	case 2:
 		var v2deployment apitype.DeploymentV2
 		if err := json.Unmarshal([]byte(deployment.Deployment), &v2deployment); err != nil {
 			return nil, err
 		}
-		v3deployment = migrate.UpToDeploymentV3(v2deployment)
+		v3deployment := migrate.UpToDeploymentV3(v2deployment)
+		v4deployment = migrate.UpToDeploymentV4(v3deployment)
 	case 3:
+		var v3deployment apitype.DeploymentV3
 		if err := json.Unmarshal([]byte(deployment.Deployment), &v3deployment); err != nil {
+			return nil, err
+		}
+		v4deployment = migrate.UpToDeploymentV4(v3deployment)
+	case 4:
+		if err := json.Unmarshal([]byte(deployment.Deployment), &v4deployment); err != nil {
 			return nil, err
 		}
 	default:
 		contract.Failf("unrecognized version: %d", deployment.Version)
 	}
 
-	return DeserializeDeploymentV3(v3deployment, secretsProv)
+	return DeserializeDeploymentV4(v4deployment, secretsProv)
 }
 
-// DeserializeDeploymentV3 deserializes a typed DeploymentV3 into a `deploy.Snapshot`.
-func DeserializeDeploymentV3(deployment apitype.DeploymentV3, secretsProv SecretsProvider) (*deploy.Snapshot, error) {
+// DeserializeDeploymentV4 deserializes a typed DeploymentV4 into a `deploy.Snapshot`.
+func DeserializeDeploymentV4(deployment apitype.DeploymentV4, secretsProv SecretsProvider) (*deploy.Snapshot, error) {
 	// Unpack the versions.
 	manifest := deploy.Manifest{
 		Time:    deployment.Manifest.Time,
@@ -246,7 +254,7 @@ func DeserializeDeploymentV3(deployment apitype.DeploymentV3, secretsProv Secret
 }
 
 // SerializeResource turns a resource into a structure suitable for serialization.
-func SerializeResource(res *resource.State, enc config.Encrypter) (apitype.ResourceV3, error) {
+func SerializeResource(res *resource.State, enc config.Encrypter) (apitype.ResourceV4, error) {
 	contract.Assert(res != nil)
 	contract.Assertf(string(res.URN) != "", "Unexpected empty resource resource.URN")
 
@@ -255,7 +263,7 @@ func SerializeResource(res *resource.State, enc config.Encrypter) (apitype.Resou
 	if inp := res.Inputs; inp != nil {
 		sinp, err := SerializeProperties(inp, enc)
 		if err != nil {
-			return apitype.ResourceV3{}, err
+			return apitype.ResourceV4{}, err
 		}
 		inputs = sinp
 	}
@@ -263,12 +271,12 @@ func SerializeResource(res *resource.State, enc config.Encrypter) (apitype.Resou
 	if outp := res.Outputs; outp != nil {
 		soutp, err := SerializeProperties(outp, enc)
 		if err != nil {
-			return apitype.ResourceV3{}, err
+			return apitype.ResourceV4{}, err
 		}
 		outputs = soutp
 	}
 
-	v3Resource := apitype.ResourceV3{
+	v4Resource := apitype.ResourceV4{
 		URN:                     res.URN,
 		Custom:                  res.Custom,
 		Delete:                  res.Delete,
@@ -290,18 +298,18 @@ func SerializeResource(res *resource.State, enc config.Encrypter) (apitype.Resou
 	}
 
 	if res.CustomTimeouts.IsNotEmpty() {
-		v3Resource.CustomTimeouts = &res.CustomTimeouts
+		v4Resource.CustomTimeouts = &res.CustomTimeouts
 	}
 
-	return v3Resource, nil
+	return v4Resource, nil
 }
 
-func SerializeOperation(op resource.Operation, enc config.Encrypter) (apitype.OperationV2, error) {
+func SerializeOperation(op resource.Operation, enc config.Encrypter) (apitype.OperationV3, error) {
 	res, err := SerializeResource(op.Resource, enc)
 	if err != nil {
-		return apitype.OperationV2{}, errors.Wrap(err, "serializing resource")
+		return apitype.OperationV3{}, errors.Wrap(err, "serializing resource")
 	}
-	return apitype.OperationV2{
+	return apitype.OperationV3{
 		Resource: res,
 		Type:     apitype.OperationType(op.Type),
 	}, nil
@@ -397,7 +405,7 @@ func SerializePropertyValue(prop resource.PropertyValue, enc config.Encrypter) (
 }
 
 // DeserializeResource turns a serialized resource back into its usual form.
-func DeserializeResource(res apitype.ResourceV3, dec config.Decrypter) (*resource.State, error) {
+func DeserializeResource(res apitype.ResourceV4, dec config.Decrypter) (*resource.State, error) {
 	// Deserialize the resource properties, if they exist.
 	inputs, err := DeserializeProperties(res.Inputs, dec)
 	if err != nil {
@@ -415,7 +423,7 @@ func DeserializeResource(res apitype.ResourceV3, dec config.Decrypter) (*resourc
 		res.ImportID), nil
 }
 
-func DeserializeOperation(op apitype.OperationV2, dec config.Decrypter) (resource.Operation, error) {
+func DeserializeOperation(op apitype.OperationV3, dec config.Decrypter) (resource.Operation, error) {
 	res, err := DeserializeResource(op.Resource, dec)
 	if err != nil {
 		return resource.Operation{}, err

@@ -30,7 +30,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v2/go/common/util/contract"
 )
 
-func UnmarshalVersionedCheckpointToLatestCheckpoint(bytes []byte) (*apitype.CheckpointV3, error) {
+func UnmarshalVersionedCheckpointToLatestCheckpoint(bytes []byte) (*apitype.CheckpointV4, error) {
 	var versionedCheckpoint apitype.VersionedCheckpoint
 	if err := json.Unmarshal(bytes, &versionedCheckpoint); err != nil {
 		return nil, err
@@ -49,7 +49,8 @@ func UnmarshalVersionedCheckpointToLatestCheckpoint(bytes []byte) (*apitype.Chec
 
 		v2checkpoint := migrate.UpToCheckpointV2(v1checkpoint)
 		v3checkpoint := migrate.UpToCheckpointV3(v2checkpoint)
-		return &v3checkpoint, nil
+		v4checkpoint := migrate.UpToCheckpointV4(v3checkpoint)
+		return &v4checkpoint, nil
 	case 1:
 		var v1checkpoint apitype.CheckpointV1
 		if err := json.Unmarshal(versionedCheckpoint.Checkpoint, &v1checkpoint); err != nil {
@@ -58,7 +59,8 @@ func UnmarshalVersionedCheckpointToLatestCheckpoint(bytes []byte) (*apitype.Chec
 
 		v2checkpoint := migrate.UpToCheckpointV2(v1checkpoint)
 		v3checkpoint := migrate.UpToCheckpointV3(v2checkpoint)
-		return &v3checkpoint, nil
+		v4checkpoint := migrate.UpToCheckpointV4(v3checkpoint)
+		return &v4checkpoint, nil
 	case 2:
 		var v2checkpoint apitype.CheckpointV2
 		if err := json.Unmarshal(versionedCheckpoint.Checkpoint, &v2checkpoint); err != nil {
@@ -66,14 +68,24 @@ func UnmarshalVersionedCheckpointToLatestCheckpoint(bytes []byte) (*apitype.Chec
 		}
 
 		v3checkpoint := migrate.UpToCheckpointV3(v2checkpoint)
-		return &v3checkpoint, nil
+		v4checkpoint := migrate.UpToCheckpointV4(v3checkpoint)
+		return &v4checkpoint, nil
 	case 3:
 		var v3checkpoint apitype.CheckpointV3
 		if err := json.Unmarshal(versionedCheckpoint.Checkpoint, &v3checkpoint); err != nil {
 			return nil, err
 		}
 
-		return &v3checkpoint, nil
+		v4checkpoint := migrate.UpToCheckpointV4(v3checkpoint)
+		return &v4checkpoint, nil
+	case 4:
+		var v4checkpoint apitype.CheckpointV4
+		if err := json.Unmarshal(versionedCheckpoint.Checkpoint, &v4checkpoint); err != nil {
+			return nil, err
+		}
+
+		return &v4checkpoint, nil
+
 	default:
 		return nil, errors.Errorf("unsupported checkpoint version %d", versionedCheckpoint.Version)
 	}
@@ -83,7 +95,7 @@ func UnmarshalVersionedCheckpointToLatestCheckpoint(bytes []byte) (*apitype.Chec
 func SerializeCheckpoint(stack tokens.QName, snap *deploy.Snapshot,
 	sm secrets.Manager) (*apitype.VersionedCheckpoint, error) {
 	// If snap is nil, that's okay, we will just create an empty deployment; otherwise, serialize the whole snapshot.
-	var latest *apitype.DeploymentV3
+	var latest *apitype.DeploymentV4
 	if snap != nil {
 		dep, err := SerializeDeployment(snap, sm)
 		if err != nil {
@@ -92,7 +104,7 @@ func SerializeCheckpoint(stack tokens.QName, snap *deploy.Snapshot,
 		latest = dep
 	}
 
-	b, err := json.Marshal(apitype.CheckpointV3{
+	b, err := json.Marshal(apitype.CheckpointV4{
 		Stack:  stack,
 		Latest: latest,
 	})
@@ -108,10 +120,10 @@ func SerializeCheckpoint(stack tokens.QName, snap *deploy.Snapshot,
 
 // DeserializeCheckpoint takes a serialized deployment record and returns its associated snapshot. Returns nil
 // if there have been no deployments performed on this checkpoint.
-func DeserializeCheckpoint(chkpoint *apitype.CheckpointV3) (*deploy.Snapshot, error) {
+func DeserializeCheckpoint(chkpoint *apitype.CheckpointV4) (*deploy.Snapshot, error) {
 	contract.Require(chkpoint != nil, "chkpoint")
 	if chkpoint.Latest != nil {
-		return DeserializeDeploymentV3(*chkpoint.Latest, DefaultSecretsProvider)
+		return DeserializeDeploymentV4(*chkpoint.Latest, DefaultSecretsProvider)
 	}
 
 	return nil, nil

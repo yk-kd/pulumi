@@ -151,7 +151,7 @@ func (b *localBackend) getStack(name tokens.QName) (*deploy.Snapshot, string, er
 }
 
 // GetCheckpoint loads a checkpoint file for the given stack in this project, from the current project workspace.
-func (b *localBackend) getCheckpoint(stackName tokens.QName) (*apitype.CheckpointV3, error) {
+func (b *localBackend) getCheckpoint(stackName tokens.QName) (*apitype.CheckpointV4, error) {
 	chkpath := b.stackPath(stackName)
 	bytes, err := b.bucket.ReadAll(context.TODO(), chkpath)
 	if err != nil {
