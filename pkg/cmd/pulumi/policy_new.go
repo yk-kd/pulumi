@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strings"
 
+	survey "github.com/AlecAivazis/survey/v2"
+	surveycore "github.com/AlecAivazis/survey/v2/core"
 	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi/pkg/v2/backend/display"
 	"github.com/pulumi/pulumi/sdk/v2/go/common/diag/colors"
@@ -28,8 +30,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v2/go/common/workspace"
 	"github.com/pulumi/pulumi/sdk/v2/python"
 	"github.com/spf13/cobra"
-	survey "gopkg.in/AlecAivazis/survey.v1"
-	surveycore "gopkg.in/AlecAivazis/survey.v1/core"
 )
 
 type newPolicyArgs struct {
@@ -272,10 +272,8 @@ func choosePolicyPackTemplate(templates []workspace.PolicyPackTemplate,
 		return workspace.PolicyPackTemplate{}, errors.New(chooseTemplateErr)
 	}
 
-	// Customize the prompt a little bit (and disable color since it doesn't match our scheme).
+	// Disable color since it doesn't match our scheme.
 	surveycore.DisableColor = true
-	surveycore.QuestionIcon = ""
-	surveycore.SelectFocusIcon = opts.Color.Colorize(colors.BrightGreen + ">" + colors.Reset)
 	message := "\rPlease choose a template:"
 	message = opts.Color.Colorize(colors.SpecPrompt + message + colors.Reset)
 
@@ -288,7 +286,10 @@ func choosePolicyPackTemplate(templates []workspace.PolicyPackTemplate,
 		Message:  message,
 		Options:  options,
 		PageSize: len(options),
-	}, &option, nil); err != nil {
+	}, &option, survey.WithIcons(func(icons *survey.IconSet) {
+		icons.Question.Text = ""
+		icons.SelectFocus.Text = opts.Color.Colorize(colors.BrightGreen + ">" + colors.Reset)
+	})); err != nil {
 		return workspace.PolicyPackTemplate{}, errors.New(chooseTemplateErr)
 	}
 	return optionToTemplateMap[option], nil

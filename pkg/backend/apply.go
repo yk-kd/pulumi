@@ -21,9 +21,9 @@ import (
 	"os"
 	"strings"
 
+	survey "github.com/AlecAivazis/survey/v2"
+	surveycore "github.com/AlecAivazis/survey/v2/core"
 	"github.com/pkg/errors"
-	survey "gopkg.in/AlecAivazis/survey.v1"
-	surveycore "gopkg.in/AlecAivazis/survey.v1/core"
 
 	"github.com/pulumi/pulumi/pkg/v2/backend/display"
 	"github.com/pulumi/pulumi/pkg/v2/engine"
@@ -135,9 +135,8 @@ func confirmBeforeUpdating(kind apitype.UpdateKind, stack Stack,
 	for {
 		var response string
 
+		// Disable color since it doesn't match our scheme.
 		surveycore.DisableColor = true
-		surveycore.QuestionIcon = ""
-		surveycore.SelectFocusIcon = opts.Display.Color.Colorize(colors.BrightGreen + ">" + colors.Reset)
 
 		choices := []string{string(yes), string(no)}
 
@@ -169,7 +168,10 @@ func confirmBeforeUpdating(kind apitype.UpdateKind, stack Stack,
 			Message: prompt,
 			Options: choices,
 			Default: string(no),
-		}, &response, nil); err != nil {
+		}, &response, survey.WithIcons(func(icons *survey.IconSet) {
+			icons.Question.Text = ""
+			icons.SelectFocus.Text = opts.Display.Color.Colorize(colors.BrightGreen + ">" + colors.Reset)
+		})); err != nil {
 			return result.FromError(errors.Wrapf(err, "confirmation cancelled, not proceeding with the %s", kind))
 		}
 

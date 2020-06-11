@@ -11,6 +11,7 @@ replace (
 require (
 	cloud.google.com/go/logging v1.0.0
 	cloud.google.com/go/storage v1.6.0
+	github.com/AlecAivazis/survey/v2 v2.0.7
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/Azure/go-autorest/autorest v0.10.0 // indirect
 	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2 // indirect

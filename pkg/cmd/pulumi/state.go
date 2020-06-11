@@ -22,6 +22,8 @@ import (
 
 	"github.com/pulumi/pulumi/sdk/v2/go/common/util/contract"
 
+	survey "github.com/AlecAivazis/survey/v2"
+	surveycore "github.com/AlecAivazis/survey/v2/core"
 	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi/pkg/v2/backend/display"
 	"github.com/pulumi/pulumi/pkg/v2/resource/deploy"
@@ -32,8 +34,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v2/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v2/go/common/util/cmdutil"
 	"github.com/spf13/cobra"
-	survey "gopkg.in/AlecAivazis/survey.v1"
-	surveycore "gopkg.in/AlecAivazis/survey.v1/core"
 )
 
 func newStateCmd() *cobra.Command {
@@ -74,10 +74,8 @@ func locateStackResource(opts display.Options, snap *deploy.Snapshot, urn resour
 		return nil, errors.New(errorMsg)
 	}
 
-	// Note: this is done to adhere to the same color scheme as the `pulumi new` picker, which also does this.
+	// Disable color since it doesn't match our scheme.
 	surveycore.DisableColor = true
-	surveycore.QuestionIcon = ""
-	surveycore.SelectFocusIcon = opts.Color.Colorize(colors.BrightGreen + ">" + colors.Reset)
 	prompt := "Multiple resources with the given URN exist, please select the one to edit:"
 	prompt = opts.Color.Colorize(colors.SpecPrompt + prompt + colors.Reset)
 
@@ -105,7 +103,10 @@ func locateStackResource(opts display.Options, snap *deploy.Snapshot, urn resour
 		Message:  prompt,
 		Options:  options,
 		PageSize: len(options),
-	}, &option, nil); err != nil {
+	}, &option, survey.WithIcons(func(icons *survey.IconSet) {
+		icons.Question.Text = ""
+		icons.SelectFocus.Text = opts.Color.Colorize(colors.BrightGreen + ">" + colors.Reset)
+	})); err != nil {
 		return nil, errors.New("no resource selected")
 	}
 
@@ -143,15 +144,17 @@ func runTotalStateEdit(
 
 	if showPrompt && cmdutil.Interactive() {
 		confirm := false
+		// Disable color since it doesn't match our scheme.
 		surveycore.DisableColor = true
-		surveycore.QuestionIcon = ""
-		surveycore.SelectFocusIcon = opts.Color.Colorize(colors.BrightGreen + ">" + colors.Reset)
 		prompt := opts.Color.Colorize(colors.Yellow + "warning" + colors.Reset + ": ")
 		prompt += "This command will edit your stack's state directly. Confirm?"
 		cmdutil.EndKeypadTransmitMode()
 		if err = survey.AskOne(&survey.Confirm{
 			Message: prompt,
-		}, &confirm, nil); err != nil || !confirm {
+		}, &confirm, survey.WithIcons(func(icons *survey.IconSet) {
+			icons.Question.Text = ""
+			icons.SelectFocus.Text = opts.Color.Colorize(colors.BrightGreen + ">" + colors.Reset)
+		})); err != nil || !confirm {
 			fmt.Println("confirmation declined")
 			return result.Bail()
 		}
