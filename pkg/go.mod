@@ -17,6 +17,8 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/Sirupsen/logrus v1.0.5 // indirect
+	github.com/alecthomas/chroma v0.7.3
+	github.com/alecthomas/kong v0.2.11 // indirect
 	github.com/aws/aws-sdk-go v1.30.7
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/djherbis/times v1.2.0
@@ -31,6 +33,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.3.0
 	github.com/ijc/Gotty v0.0.0-20170406111628-a8b993ba6abd
 	github.com/json-iterator/go v1.1.9
+	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mxschmitt/golang-combinations v1.0.0
 	github.com/nbutton23/zxcvbn-go v0.0.0-20180912185939-ae427f1e4c1d
@@ -54,11 +57,13 @@ require (
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
+	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
 	google.golang.org/api v0.20.0
 	google.golang.org/genproto v0.0.0-20200318110522-7735f76e9fa5
 	google.golang.org/grpc v1.28.0
 	gopkg.in/AlecAivazis/survey.v1 v1.8.9-0.20200217094205-6773bdf39b7f
 	gopkg.in/src-d/go-git.v4 v4.13.1
+	gopkg.in/yaml.v2 v2.2.8
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0
 	sourcegraph.com/sourcegraph/appdash-data v0.0.0-20151005221446-73f23eafcf67 // indirect
 )

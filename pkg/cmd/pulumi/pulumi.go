@@ -184,6 +184,7 @@ func NewPulumiCmd() *cobra.Command {
 	// Common commands:
 	//     - Getting Started Commands:
 	cmd.AddCommand(newNewCmd())
+	cmd.AddCommand(newExampleCmd())
 	//     - Deploy Commands:
 	cmd.AddCommand(newUpCmd())
 	cmd.AddCommand(newPreviewCmd())
