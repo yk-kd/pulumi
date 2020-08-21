@@ -28,6 +28,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -144,8 +145,97 @@ func newLanguageHost(exec, engineAddress, tracing, virtualenv string) pulumirpc.
 // GetRequiredPlugins computes the complete set of anticipated plugins required by a program.
 func (host *pythonLanguageHost) GetRequiredPlugins(ctx context.Context,
 	req *pulumirpc.GetRequiredPluginsRequest) (*pulumirpc.GetRequiredPluginsResponse, error) {
-	// TODO: implement this.
-	return &pulumirpc.GetRequiredPluginsResponse{}, nil
+	if host.virtualenv == "" {
+		return &pulumirpc.GetRequiredPluginsResponse{}, nil
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, errors.Wrap(err, "getting the working directory")
+	}
+
+	virtualenv := host.virtualenv
+	if !path.IsAbs(virtualenv) {
+		// TODO take req.GetPwd() into account?
+		// TODO DRY with similar code in Run().
+		virtualenv = filepath.Join(cwd, virtualenv)
+	}
+
+	// If the virtual environment directory doesn't exist, it needs to be created.
+	var createVirtualEnv bool
+	info, err := os.Stat(virtualenv)
+	if err != nil {
+		if os.IsNotExist(err) {
+			createVirtualEnv = true
+		} else {
+			return &pulumirpc.GetRequiredPluginsResponse{}, err
+		}
+	} else if !info.IsDir() {
+		return &pulumirpc.GetRequiredPluginsResponse{},
+			errors.Errorf("the 'virtualenv' option in Pulumi.yaml is set to %q but it is not a directory", virtualenv)
+	}
+
+	// If the virtual environment directory exists, but is empty, it needs to be created.
+	if !createVirtualEnv {
+		empty, err := isDirEmpty(virtualenv)
+		if err != nil {
+			return &pulumirpc.GetRequiredPluginsResponse{}, err
+		}
+		createVirtualEnv = empty
+	}
+
+	// Create the virtual environment and install dependencies into it, if needed.
+	if createVirtualEnv {
+		if err := python.InstallDependencies2(cwd, virtualenv, true /*showOutput*/); err != nil {
+			return &pulumirpc.GetRequiredPluginsResponse{}, err
+		}
+	}
+
+	// Determine required plugins from installed Python dependencies.
+	// python -m pip list --format json
+	pipListCmd := python.VirtualEnvCommand(virtualenv, "python", "-m", "pip", "list", "--format", "json")
+	pipListCmd.Dir = cwd
+	output, err := pipListCmd.CombinedOutput()
+	if err != nil {
+		return &pulumirpc.GetRequiredPluginsResponse{}, errors.Wrap(err, "running python -m pip list --format json")
+	}
+	type Package struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	}
+	var packages []Package
+	if err := json.Unmarshal(output, &packages); err != nil {
+		return &pulumirpc.GetRequiredPluginsResponse{},
+			errors.Wrap(err, "parsing output of python -m pip list --format json")
+	}
+
+	packageToVersion := make(map[string]string)
+	for _, p := range packages {
+		if existingVersion := packageToVersion[p.Name]; existingVersion == p.Version {
+			// only include distinct dependencies.
+			continue
+		}
+		packageToVersion[p.Name] = p.Version
+	}
+
+	var plugins []*pulumirpc.PluginDependency
+	for p, version := range packageToVersion {
+		if strings.HasPrefix(p, "pulumi-") {
+			name := strings.TrimPrefix(p, "pulumi-")
+
+			// Add v prefix if missing.
+			if !strings.HasPrefix(version, "v") {
+				version = fmt.Sprintf("v%s", version)
+			}
+
+			plugins = append(plugins, &pulumirpc.PluginDependency{
+				Name:    name,
+				Version: version,
+				Kind:    "resource",
+			})
+		}
+	}
+	return &pulumirpc.GetRequiredPluginsResponse{Plugins: plugins}, nil
 }
 
 // RPC endpoint for LanguageRuntimeServer::Run
@@ -279,4 +369,18 @@ func (host *pythonLanguageHost) GetPluginInfo(ctx context.Context, req *pbempty.
 	return &pulumirpc.PluginInfo{
 		Version: version.Version,
 	}, nil
+}
+
+func isDirEmpty(dirname string) (bool, error) {
+	f, err := os.Open(dirname)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true, nil
+	}
+	return false, err
 }

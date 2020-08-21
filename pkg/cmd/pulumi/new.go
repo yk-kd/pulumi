@@ -46,7 +46,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v2/go/common/util/executable"
 	"github.com/pulumi/pulumi/sdk/v2/go/common/util/logging"
 	"github.com/pulumi/pulumi/sdk/v2/go/common/workspace"
-	"github.com/pulumi/pulumi/sdk/v2/python"
 )
 
 type promptForValueFunc func(yes bool, valueType string, defaultValue string, secret bool,
@@ -602,14 +601,23 @@ func nodeInstallDependencies() (string, error) {
 
 // pythonInstallDependencies will create a new virtual environment and install dependencies.
 func pythonInstallDependencies(proj *workspace.Project, root string) error {
-	return python.InstallDependencies(root, true /*showOutput*/, func(virtualenv string) error {
-		// Save project with venv info.
-		proj.Runtime.SetOption("virtualenv", virtualenv)
-		if err := workspace.SaveProject(proj); err != nil {
-			return errors.Wrap(err, "saving project")
-		}
-		return nil
-	})
+	// Save project with venv info.
+	proj.Runtime.SetOption("virtualenv", "venv")
+	if err := workspace.SaveProject(proj); err != nil {
+		return errors.Wrap(err, "saving project")
+	}
+
+	projinfo := &engine.Projinfo{Proj: proj, Root: root}
+	pwd, main, plugctx, err := engine.ProjectInfoContext(projinfo, nil, nil, cmdutil.Diag(), cmdutil.Diag(), nil)
+	if err != nil {
+		return err
+	}
+	defer plugctx.Close()
+
+	// Call RunInstallPlugins, which will ask the language host for required plugins, which will
+	// create the virtual environment and install dependencies, if the virtual environment does
+	// not already exist.
+	return engine.RunInstallPlugins(proj, pwd, main, nil, plugctx)
 }
 
 // dotnetInstallDependenciesAndBuild will install dependencies and build the project.

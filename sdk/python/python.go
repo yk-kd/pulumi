@@ -133,6 +133,87 @@ func ActivateVirtualEnv(environ []string, virtualEnvDir string) []string {
 	return result
 }
 
+// InstallDependencies2 will create a new virtual environment and install dependencies in the root directory.
+func InstallDependencies2(root, venvDir string, showOutput bool) error {
+	print := func(message string) {
+		if showOutput {
+			fmt.Println(message)
+			fmt.Println()
+		}
+	}
+
+	print("Creating virtual environment...")
+
+	cmd, err := Command("-m", "venv", venvDir)
+	if err != nil {
+		return err
+	}
+	if output, err := cmd.CombinedOutput(); err != nil {
+		if len(output) > 0 {
+			os.Stdout.Write(output)
+			fmt.Println()
+		}
+		return errors.Wrapf(err, "creating virtual environment at %s", venvDir)
+	}
+
+	print("Finished creating virtual environment")
+
+	runPipInstall := func(errorMsg string, arg ...string) error {
+		pipCmd := VirtualEnvCommand(venvDir, "python", append([]string{"-m", "pip", "install"}, arg...)...)
+		pipCmd.Dir = root
+		pipCmd.Env = ActivateVirtualEnv(os.Environ(), venvDir)
+
+		wrapError := func(err error) error {
+			return errors.Wrapf(err, "%s via '%s'", errorMsg, strings.Join(pipCmd.Args, " "))
+		}
+
+		if showOutput {
+			// Show stdout/stderr output.
+			pipCmd.Stdout = os.Stdout
+			pipCmd.Stderr = os.Stderr
+			if err := pipCmd.Run(); err != nil {
+				return wrapError(err)
+			}
+		} else {
+			// Otherwise, only show output if there is an error.
+			if output, err := pipCmd.CombinedOutput(); err != nil {
+				if len(output) > 0 {
+					os.Stdout.Write(output)
+					fmt.Println()
+				}
+				return wrapError(err)
+			}
+		}
+		return nil
+	}
+
+	print("Updating pip, setuptools, and wheel in virtual environment...")
+
+	err = runPipInstall("updating pip, setuptools, and wheel", "--upgrade", "pip", "setuptools", "wheel")
+	if err != nil {
+		return err
+	}
+
+	print("Finished updating")
+
+	// If `requirements.txt` doesn't exist, exit early.
+	requirementsPath := filepath.Join(root, "requirements.txt")
+	if _, err := os.Stat(requirementsPath); os.IsNotExist(err) {
+		return nil
+	}
+
+	print("Installing dependencies in virtual environment...")
+
+	err = runPipInstall("installing dependencies", "-r", "requirements.txt")
+	if err != nil {
+		return err
+	}
+
+	print("Finished installing dependencies")
+
+	return nil
+}
+
 // InstallDependencies will create a new virtual environment and install dependencies in the root directory.
 func InstallDependencies(root string, showOutput bool, saveProj func(virtualenv string) error) error {
 	print := func(message string) {
