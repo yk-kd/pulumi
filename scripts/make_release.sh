@@ -55,6 +55,7 @@ run_go_build "${PULUMI_ROOT}/sdk/dotnet/cmd/pulumi-language-dotnet" "sdk"
 run_go_build "${PULUMI_ROOT}/sdk/go/pulumi-language-go" "sdk"
 
 # Copy over the language and dynamic resource providers.
+cp "${ROOT}/sdk/dotnet/dist/pulumi-resource-pulumi-dotnet" "${PUBDIR}/bin/"
 cp "${ROOT}/sdk/nodejs/dist/pulumi-resource-pulumi-nodejs" "${PUBDIR}/bin/"
 cp "${ROOT}/sdk/python/dist/pulumi-resource-pulumi-python" "${PUBDIR}/bin/"
 cp "${ROOT}/sdk/nodejs/dist/pulumi-analyzer-policy" "${PUBDIR}/bin/"

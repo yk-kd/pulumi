@@ -1,0 +1,3 @@
+#!/bin/sh
+
+PULUMI_DYNAMIC_PROVIDER=true dotnet run $@

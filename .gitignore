@@ -26,6 +26,7 @@ coverage.cov
 
 # for goreleaser
 goreleaser
+pulumi-resource-pulumi-dotnet
 pulumi-resource-pulumi-nodejs
 pulumi-resource-pulumi-python
 pulumi-analyzer-policy

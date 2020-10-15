@@ -15,7 +15,10 @@ namespace Pulumi
     /// </summary>
     public abstract class InputArgs
     {
+        const string ProviderKey = "__provider";
+
         private readonly ImmutableArray<InputInfo> _inputInfos;
+        private string? _provider;
 
         private protected abstract void ValidateMember(Type memberType, string fullName);
 
@@ -45,6 +48,21 @@ namespace Pulumi
                 new InputInfo(t.attr, t.memberName, t.memberType, t.getValue)).ToImmutableArray();
         }
 
+        /// <summary>
+        /// Creates a shally copy of args with dynamic provider key set.
+        /// </summary>
+        internal InputArgs WithProvider(string provider)
+        {
+            if (_inputInfos.Any(info => info.Attribute.Name == ProviderKey))
+            {
+                throw new ArgumentException("A dynamic resource must not define the __provider key");
+            }
+
+            var clone = (InputArgs)MemberwiseClone();
+            clone._provider = provider;
+            return clone;
+        }
+
         internal virtual async Task<ImmutableDictionary<string, object?>> ToDictionaryAsync()
         {
             var builder = ImmutableDictionary.CreateBuilder<string, object?>();
@@ -64,6 +82,12 @@ namespace Pulumi
                 }
 
                 builder.Add(info.Attribute.Name, value);
+            }
+
+            // Set the __provider property for dynamic providers if it's present.
+            if (!string.IsNullOrEmpty(_provider))
+            {
+                builder.Add(ProviderKey, _provider);
             }
 
             return builder.ToImmutable();

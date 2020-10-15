@@ -78,6 +78,26 @@ Pulumi.DeploymentInstance.InvokeAsync<T>(string token, Pulumi.InvokeArgs args, P
 Pulumi.DeploymentInstance.IsDryRun.get -> bool
 Pulumi.DeploymentInstance.ProjectName.get -> string
 Pulumi.DeploymentInstance.StackName.get -> string
+Pulumi.Dynamic.CheckFailure
+Pulumi.Dynamic.CheckFailure.CheckFailure() -> void
+Pulumi.Dynamic.CheckResult
+Pulumi.Dynamic.CheckResult.CheckResult() -> void
+Pulumi.Dynamic.CreateResult
+Pulumi.Dynamic.CreateResult.CreateResult() -> void
+Pulumi.Dynamic.DiffResult
+Pulumi.Dynamic.DiffResult.DiffResult() -> void
+Pulumi.Dynamic.ReadResult
+Pulumi.Dynamic.ReadResult.ReadResult() -> void
+Pulumi.Dynamic.ResourceProvider
+Pulumi.Dynamic.ResourceProvider.CheckAsync(object olds, object news) -> System.Threading.Tasks.Task<Pulumi.Dynamic.CheckResult>
+Pulumi.Dynamic.ResourceProvider.CreateAsync(object inputs) -> System.Threading.Tasks.Task<Pulumi.Dynamic.CreateResult>
+Pulumi.Dynamic.ResourceProvider.DeleteAsync(string id, object props) -> System.Threading.Tasks.Task
+Pulumi.Dynamic.ResourceProvider.DiffAsync(string id, object olds, object news) -> System.Threading.Tasks.Task<Pulumi.Dynamic.DiffResult>
+Pulumi.Dynamic.ResourceProvider.ReadAsync(string id, object props) -> System.Threading.Tasks.Task<Pulumi.Dynamic.ReadResult>
+Pulumi.Dynamic.ResourceProvider.ResourceProvider() -> void
+Pulumi.Dynamic.ResourceProvider.UpdateAsync(string id, object olds, object news) -> System.Threading.Tasks.Task<Pulumi.Dynamic.UpdateResult>
+Pulumi.Dynamic.UpdateResult
+Pulumi.Dynamic.UpdateResult.UpdateResult() -> void
 Pulumi.FileArchive
 Pulumi.FileArchive.FileArchive(string path) -> void
 Pulumi.FileAsset

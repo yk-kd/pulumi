@@ -38,6 +38,9 @@ build::
 	dotnet build dotnet.sln /p:VersionPrefix=${VERSION_PREFIX} /p:VersionSuffix=${VERSION_SUFFIX}
 	go install -ldflags "-X github.com/pulumi/pulumi/sdk/v2/go/common/version.Version=${VERSION}" ${LANGHOST_PKG}
 
+install_package:: build_package
+	cp ./dist/pulumi-resource-pulumi-dotnet "$(PULUMI_BIN)"
+
 install_plugin::
 	GOBIN=$(PULUMI_BIN) go install -ldflags "-X github.com/pulumi/pulumi/sdk/v2/go/common/version.Version=${VERSION}" ${LANGHOST_PKG}
 
@@ -58,6 +61,7 @@ test_all:: dotnet_test
 
 dist::
 	go install -ldflags "-X github.com/pulumi/pulumi/sdk/v2/go/common/version.Version=${VERSION}" ${LANGHOST_PKG}
+	cp ./dist/pulumi-resource-pulumi-dotnet "$$(go env GOPATH)"/bin/
 
 brew:: dist
 	go install -ldflags "-X github.com/pulumi/pulumi/sdk/v2/go/common/version.Version=${VERSION}" ${LANGHOST_PKG}

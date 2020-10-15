@@ -10,7 +10,7 @@ go mod tidy
 go mod download
 popd
 
-cp sdk/nodejs/dist/pulumi-resource-pulumi-nodejs .
+cp sdk/nodejs/dist/pulumi-resource-pulumi-dotnet .
 cp sdk/nodejs/dist/pulumi-resource-pulumi-nodejs .
 cp sdk/python/dist/pulumi-resource-pulumi-python .
 cp sdk/nodejs/dist/pulumi-analyzer-policy .

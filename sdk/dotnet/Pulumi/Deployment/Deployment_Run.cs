@@ -151,6 +151,12 @@ namespace Pulumi
         {
             // Serilog.Log.Logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
 
+            var dynamicProvider = Environment.GetEnvironmentVariable("PULUMI_DYNAMIC_PROVIDER");
+            if (bool.TryParse(dynamicProvider, out var dynamicProviderValue) && dynamicProviderValue)
+            {
+                return new Dynamic.Runner();
+            }
+
             Serilog.Log.Debug("Deployment.Run called.");
             lock (_instanceLock)
             {

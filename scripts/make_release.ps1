@@ -35,6 +35,7 @@ RunGoBuild "github.com/pulumi/pulumi/sdk/v2/dotnet/cmd/pulumi-language-dotnet" "
 RunGoBuild "github.com/pulumi/pulumi/sdk/v2/go/pulumi-language-go" "sdk" "pulumi-language-go.exe"
 CopyPackage "$Root\sdk\nodejs\bin" "pulumi"
 
+Copy-Item "$Root\sdk\dotnet\dist\pulumi-resource-pulumi-dotnet.cmd" "$PublishDir\bin"
 Copy-Item "$Root\sdk\nodejs\dist\pulumi-resource-pulumi-nodejs.cmd" "$PublishDir\bin"
 Copy-Item "$Root\sdk\python\dist\pulumi-resource-pulumi-python.cmd" "$PublishDir\bin"
 Copy-Item "$Root\sdk\nodejs\dist\pulumi-analyzer-policy.cmd" "$PublishDir\bin"
