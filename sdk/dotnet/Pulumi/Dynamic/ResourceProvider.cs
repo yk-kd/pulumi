@@ -1,5 +1,6 @@
 // Copyright 2016-2020, Pulumi Corporation
 
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Pulumi.Dynamic
@@ -124,6 +125,8 @@ namespace Pulumi.Dynamic
 
     public sealed class CreateResult
     {
+        public string Id { get; set; } = "";
+        public Dictionary<string, object?> Outputs { get; set; } = new Dictionary<string, object?>();
     }
 
     public sealed class ReadResult

@@ -221,3 +221,22 @@ func TestConstructDotnet(t *testing.T) {
 	}
 	integration.ProgramTest(t, opts)
 }
+
+// Tests dynamic provider in .NET.
+func TestDynamicDotnet(t *testing.T) {
+	var randomVal string
+	integration.ProgramTest(t, &integration.ProgramTestOptions{
+		Dir:          filepath.Join("dynamic", "dotnet"),
+		Dependencies: []string{"Pulumi"},
+		ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
+			randomVal = stack.Outputs["random_val"].(string)
+		},
+		EditDirs: []integration.EditDir{{
+			Dir:      "step1",
+			Additive: true,
+			ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
+				assert.Equal(t, randomVal, stack.Outputs["random_val"].(string))
+			},
+		}},
+	})
+}

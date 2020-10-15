@@ -1,0 +1,3 @@
+name: dynamic_dotnet
+description: A simple .NET program that uses dynamic providers.
+runtime: dotnet

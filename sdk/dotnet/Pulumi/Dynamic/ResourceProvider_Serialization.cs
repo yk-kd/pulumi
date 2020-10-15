@@ -12,7 +12,9 @@ namespace Pulumi.Dynamic
     {
         internal string Serialize()
         {
-            string path = Assembly.GetExecutingAssembly().Location;
+            //string path = Assembly.GetExecutingAssembly().Location;
+            string path = GetType().Assembly.Location;
+            // TODO use the ILLinker to prune the assembly to just the provider and the code it depends on.
             return FileToBrotliBase64String(path);
         }
 

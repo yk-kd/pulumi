@@ -15,8 +15,6 @@ namespace Pulumi
     /// </summary>
     public abstract class InputArgs
     {
-        const string ProviderKey = "__provider";
-
         private readonly ImmutableArray<InputInfo> _inputInfos;
         private string? _provider;
 
@@ -53,9 +51,9 @@ namespace Pulumi
         /// </summary>
         internal InputArgs WithProvider(string provider)
         {
-            if (_inputInfos.Any(info => info.Attribute.Name == ProviderKey))
+            if (_inputInfos.Any(info => info.Attribute.Name == Constants.ProviderPropertyName))
             {
-                throw new ArgumentException("A dynamic resource must not define the __provider key");
+                throw new ArgumentException($"A dynamic resource must not define the {Constants.ProviderPropertyName} key");
             }
 
             var clone = (InputArgs)MemberwiseClone();
@@ -87,7 +85,7 @@ namespace Pulumi
             // Set the __provider property for dynamic providers if it's present.
             if (!string.IsNullOrEmpty(_provider))
             {
-                builder.Add(ProviderKey, _provider);
+                builder.Add(Constants.ProviderPropertyName, _provider);
             }
 
             return builder.ToImmutable();

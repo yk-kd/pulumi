@@ -39,5 +39,7 @@ namespace Pulumi.Serialization
 
         public const string IdPropertyName = "id";
         public const string UrnPropertyName = "urn";
+
+        public const string ProviderPropertyName = "__provider";
     }
 }
