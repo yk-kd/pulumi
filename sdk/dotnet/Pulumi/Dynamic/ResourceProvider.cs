@@ -1,6 +1,8 @@
 // Copyright 2016-2020, Pulumi Corporation
 
+using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading.Tasks;
 
 namespace Pulumi.Dynamic
@@ -44,22 +46,13 @@ namespace Pulumi.Dynamic
         public virtual Task<DiffResult> DiffAsync(string id, object olds, object news)
             => Task.FromResult(new DiffResult());
 
-        // /**
-        // * Create allocates a new instance of the provided resource and returns its unique ID afterwards.
-        // * If this call fails, the resource must not have been created (i.e., it is "transactional").
-        // *
-        // * @param inputs The properties to set during creation.
-        // */
-        // create: (inputs: any) => Promise<CreateResult>;
 
-        //     def create(self, props: Any) -> CreateResult:
-        //         """
-        //         Create allocates a new instance of the provided resource and returns its unique ID
-        //         afterwards. If this call fails, the resource must not have been created (i.e., it is
-        //         "transactional").
-        //         """
-        //         raise Exception("Subclass of ResourceProvider must implement 'create'")
-        public abstract Task<CreateResult> CreateAsync(object inputs);
+        /// <summary>
+        /// Create allocates a new instance of the provided resource and returns its unique ID afterwards.
+        /// If this call fails, the resource must not have been created (i.e., it is "transactional").
+        /// </summary>
+        /// <param name="inputs">The properties to set during creation.</param>
+        public abstract Task<CreateResult> CreateAsync(ImmutableDictionary<string, object> inputs);
 
         // /**
         // * Reads the current live state associated with a resource.  Enough state must be included in the inputs to uniquely
@@ -123,10 +116,26 @@ namespace Pulumi.Dynamic
     {
     }
 
+    /// <summary>
+    /// CreateResult represents the results of a call to <see cref="ResourceProvider.CreateAsync"/>.
+    /// </summary>
     public sealed class CreateResult
     {
-        public string Id { get; set; } = "";
-        public Dictionary<string, object?> Outputs { get; set; } = new Dictionary<string, object?>();
+        /// <summary>
+        /// The ID of the created resource.
+        /// </summary>
+        public string? Id { get; set; }
+
+        private Dictionary<string, object>? _outputs;
+
+        /// <summary>
+        /// Any properties that were computed during creation.
+        /// </summary>
+        public Dictionary<string, object> Outputs
+        {
+            get => _outputs ??= new Dictionary<string, object>();
+            set => _outputs = value;
+        }
     }
 
     public sealed class ReadResult

@@ -2,10 +2,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Pulumi.Serialization;
 using Pulumirpc;
@@ -50,32 +52,24 @@ namespace Pulumi.Dynamic
 
     internal sealed class ResourceProviderService : Pulumirpc.ResourceProvider.ResourceProviderBase
     {
-        private static ResourceProvider? GetProvider(Google.Protobuf.WellKnownTypes.Struct properties)
+        private static ResourceProvider? GetProvider(Struct properties)
         {
-            var serializedProviderValue = properties.Fields[Constants.ProviderPropertyName];
-            Q.WriteLine($"GetProvider: serializedProviderValue: {serializedProviderValue.KindCase}");
-
-
             var serializedProvider = properties.Fields[Constants.ProviderPropertyName].StringValue;
-            Q.WriteLine($"GetProvider: serializedProvider: {serializedProvider}");
-
             Debug.Assert(!string.IsNullOrEmpty(serializedProvider), "!string.IsNullOrEmpty(serializedProvider)");
             string[] parts = serializedProvider.Split(':');
             Debug.Assert(parts.Length == 2, "parts.Length == 2");
             string typeFullName = parts[0];
             string brotliBase64 = parts[1];
 
-            Q.WriteLine($"GetProvider: TypeFullName: {typeFullName}");
-            Q.WriteLine($"GetProvider: BrotliBase64: {brotliBase64}");
 
             string path = Assembly.GetExecutingAssembly().Location;
             Assembly assembly = ResourceProvider.LoadFromBrotliBase64String(brotliBase64, path);
 
-            Type? type = assembly.GetType(typeFullName, throwOnError: true);
+            System.Type? type = assembly.GetType(typeFullName, throwOnError: true);
             Debug.Assert(type != null, "type != null");
             var instance = Activator.CreateInstance(type);
-            Q.WriteLine($"GetProvider: Instance: {instance!.GetType()}");
-            Q.WriteLine($"GetProvider: Instance is ResourceProvider?: {instance is ResourceProvider}");
+            // Q.WriteLine($"GetProvider: Instance: {instance!.GetType()}");
+            // Q.WriteLine($"GetProvider: Instance is ResourceProvider?: {instance is ResourceProvider}");
             return instance as ResourceProvider;
         }
 
@@ -151,7 +145,7 @@ namespace Pulumi.Dynamic
         /// <param name="request">The request received from the client.</param>
         /// <param name="context">The context of the server-side call handler being invoked.</param>
         /// <returns>The response to send back to the client (wrapped by a task).</returns>
-        public override Task<Google.Protobuf.WellKnownTypes.Empty> Delete(DeleteRequest request, ServerCallContext context)
+        public override Task<Empty> Delete(DeleteRequest request, ServerCallContext context)
         {
             Q.WriteLine("Delete");
 
@@ -162,52 +156,23 @@ namespace Pulumi.Dynamic
             // return empty_pb2.Empty()
 
 
-            return Task.FromResult(new Google.Protobuf.WellKnownTypes.Empty());
+            return Task.FromResult(new Empty());
         }
 
-        /// <summary>
-        /// Cancel signals the provider to abort all outstanding resource operations.
-        /// </summary>
-        /// <param name="request">The request received from the client.</param>
-        /// <param name="context">The context of the server-side call handler being invoked.</param>
-        /// <returns>The response to send back to the client (wrapped by a task).</returns>
-        public override Task<Google.Protobuf.WellKnownTypes.Empty> Cancel(Google.Protobuf.WellKnownTypes.Empty request, ServerCallContext context)
-            => Task.FromResult(new Google.Protobuf.WellKnownTypes.Empty());
+        public override Task<Empty> Cancel(Empty request, ServerCallContext context)
+            => Task.FromResult(new Empty());
 
-        /// <summary>
-        /// Create allocates a new instance of the provided resource and returns its unique ID afterwards.  (The input ID
-        /// must be blank.)  If this call fails, the resource must not have been created (i.e., it is "transactional").
-        /// </summary>
-        /// <param name="request">The request received from the client.</param>
-        /// <param name="context">The context of the server-side call handler being invoked.</param>
-        /// <returns>The response to send back to the client (wrapped by a task).</returns>
         public override async Task<CreateResponse> Create(CreateRequest request, ServerCallContext context)
         {
-            Q.WriteLine("**Create JVP**");
-
-            // props = rpc.deserialize_properties(request.properties)
-            // provider = get_provider(props)
-            // result = provider.create(props)
-            // outs = result.outs
-            // outs[PROVIDER_KEY] = props[PROVIDER_KEY]
-
-            // loop = asyncio.new_event_loop()
-            // outs_proto = loop.run_until_complete(rpc.serialize_properties(outs, {}))
-            // loop.close()
-
-            // fields = {"id": result.id, "properties": outs_proto}
-            // return proto.CreateResponse(**fields)
-
+            ImmutableDictionary<string, object> props = ToDictionary(request.Properties);
 
             ResourceProvider? provider = GetProvider(request.Properties);
-            Debug.Assert(provider != null, "provider != null");
-            CreateResult result = await provider.CreateAsync(new object()).ConfigureAwait(false);
+            Debug.Assert(provider != null);
+            CreateResult result = await provider.CreateAsync(props).ConfigureAwait(false);
 
-            var outs = new Google.Protobuf.WellKnownTypes.Struct();
-            foreach (var (key, value) in result.Outputs) {
-                // TODO fix all this
-                outs.Fields.Add(key, new Google.Protobuf.WellKnownTypes.Value { StringValue = (string)value! });
-            }
+            Struct outs = result.Outputs != null
+                ? await SerializeAsync(result.Outputs).ConfigureAwait(false)
+                : new Struct();
             outs.Fields.Add(Constants.ProviderPropertyName, request.Properties.Fields[Constants.ProviderPropertyName]);
 
             return new CreateResponse
@@ -252,7 +217,7 @@ namespace Pulumi.Dynamic
         /// <param name="request">The request received from the client.</param>
         /// <param name="context">The context of the server-side call handler being invoked.</param>
         /// <returns>The response to send back to the client (wrapped by a task).</returns>
-        public override Task<PluginInfo> GetPluginInfo(Google.Protobuf.WellKnownTypes.Empty request, ServerCallContext context)
+        public override Task<PluginInfo> GetPluginInfo(Empty request, ServerCallContext context)
             => Task.FromResult(new PluginInfo { Version = "0.1.0" });
 
         /// <summary>
@@ -282,13 +247,37 @@ namespace Pulumi.Dynamic
 
             string id = request.Id;
             var outs = request.Properties;
-            //var outs = new Google.Protobuf.WellKnownTypes.Struct();
+            //var outs = new Struct();
             //outs.Fields.Add(Constants.ProviderPropertyName, request.Properties.Fields[Constants.ProviderPropertyName]);
             return Task.FromResult(new ReadResponse
             {
                 Id = id,
                 Properties = outs,
             });
+        }
+
+
+        // TODO dedupe ToDictionary and SerializeAsync from MockMonitor.cs.
+        private static ImmutableDictionary<string, object> ToDictionary(Struct s)
+        {
+            var builder = ImmutableDictionary.CreateBuilder<string, object>();
+            foreach (var (key, value) in s.Fields)
+            {
+                var data = Deserializer.Deserialize(value);
+                if (data.IsKnown && data.Value != null)
+                {
+                    builder.Add(key, data.Value);
+                }
+            }
+            return builder.ToImmutable();
+        }
+
+        private async Task<Struct> SerializeAsync(object o)
+        {
+            var dict = (o as IDictionary<string, object>)?.ToImmutableDictionary()
+                       ?? await new Serializer().SerializeAsync("", o).ConfigureAwait(false) as ImmutableDictionary<string, object>
+                       ?? throw new InvalidOperationException($"{o.GetType().FullName} is not a supported argument type");
+            return Serializer.CreateStruct(dict);
         }
     }
 }
