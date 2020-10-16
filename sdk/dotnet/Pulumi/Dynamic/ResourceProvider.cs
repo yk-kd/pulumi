@@ -28,22 +28,13 @@ namespace Pulumi.Dynamic
         public virtual Task<CheckResult> CheckAsync(object olds, object news)
             => Task.FromResult(new CheckResult());
 
-        // /**
-        // * Diff checks what impacts a hypothetical update will have on the resource's properties.
-        // *
-        // * @param id The ID of the resource to diff.
-        // * @param olds The old values of properties to diff.
-        // * @param news The new values of properties to diff.
-        // */
-        // diff?: (id: resource.ID, olds: any, news: any) => Promise<DiffResult>;
-
-
-        //     def diff(self, _id: str, _olds: Any, _news: Any) -> DiffResult:
-        //         """
-        //         Diff checks what impacts a hypothetical update will have on the resource's properties.
-        //         """
-        //         return DiffResult()
-        public virtual Task<DiffResult> DiffAsync(string id, object olds, object news)
+        /// <summary>
+        /// Diff checks what impacts a hypothetical update will have on the resource's properties.
+        /// </summary>
+        /// <param name="id">The ID of the resource to diff.</param>
+        /// <param name="olds">The old values of properties to diff.</param>
+        /// <param name="news">The new values of properties to diff.</param>
+        public virtual Task<DiffResult> DiffAsync(string id, ImmutableDictionary<string, object> olds, ImmutableDictionary<string, object> news)
             => Task.FromResult(new DiffResult());
 
 
@@ -87,20 +78,13 @@ namespace Pulumi.Dynamic
         public virtual Task<UpdateResult> UpdateAsync(string id, object olds, object news)
             => Task.FromResult(new UpdateResult());
 
-        // /**
-        // * Delete tears down an existing resource with the given ID.  If it fails, the resource is assumed to still exist.
-        // *
-        // * @param id The ID of the resource to delete.
-        // * @param props The current properties on the resource.
-        // */
-        // delete?: (id: resource.ID, props: any) => Promise<void>;
-
-        //     def delete(self, _id: str, _props: Any) -> None:
-        //         """
-        //         Delete tears down an existing resource with the given ID.  If it fails, the resource is
-        //         assumed to still exist.
-        //         """
-        public virtual Task DeleteAsync(string id, object props)
+        /// <summary>
+        /// Delete tears down an existing resource with the given ID.
+        /// If it fails, the resource is assumed to still exist.
+        /// </summary>
+        /// <param name="id">The ID of the resource to delete.</param>
+        /// <param name="props">The current properties on the resource.</param>
+        public virtual Task DeleteAsync(string id, ImmutableDictionary<string, object> props)
             => Task.CompletedTask;
     }
 
@@ -112,8 +96,43 @@ namespace Pulumi.Dynamic
     {
     }
 
+    /// <summary>
+    /// DiffResult represents the results of a call to <see cref="ResourceProvider.DiffAsync"/>.
+    /// </summary>
     public sealed class DiffResult
     {
+        /// <summary>
+        /// If true, this diff detected changes and suggests an update.
+        /// </summary>
+        public bool? Changes { get; set; }
+
+        private List<string>? _replaces;
+
+        /// <summary>
+        /// If this update requires a replacement, the set of properties triggering it.
+        /// </summary>
+        public List<string> Replaces
+        {
+            get => _replaces ??= new List<string>();
+            set => _replaces = value;
+        }
+
+        private List<string>? _stables;
+
+        /// <summary>
+        /// An optional list of properties that will not ever change.
+        /// </summary>
+        public List<string> Stables
+        {
+            get => _stables ??= new List<string>();
+            set => _stables = value;
+        }
+
+        /// <summary>
+        /// If true, and a replacement occurs, the resource will first be deleted before being recreated.
+        /// This is to void potential side-by-side issues with the default create before delete behavior.
+        /// </summary>
+        public bool? DeleteBeforeReplace { get; set; }
     }
 
     /// <summary>

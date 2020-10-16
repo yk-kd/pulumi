@@ -39,6 +39,7 @@ namespace Pulumi.Dynamic
         }
     }
 
+    // TODO remove
     internal static class Q
     {
         public static void WriteLine<T>(T value)
@@ -52,7 +53,7 @@ namespace Pulumi.Dynamic
 
     internal sealed class ResourceProviderService : Pulumirpc.ResourceProvider.ResourceProviderBase
     {
-        private static ResourceProvider? GetProvider(Struct properties)
+        private static ResourceProvider GetProvider(Struct properties)
         {
             var serializedProvider = properties.Fields[Constants.ProviderPropertyName].StringValue;
             Debug.Assert(!string.IsNullOrEmpty(serializedProvider), "!string.IsNullOrEmpty(serializedProvider)");
@@ -61,51 +62,41 @@ namespace Pulumi.Dynamic
             string typeFullName = parts[0];
             string brotliBase64 = parts[1];
 
-
             string path = Assembly.GetExecutingAssembly().Location;
             Assembly assembly = ResourceProvider.LoadFromBrotliBase64String(brotliBase64, path);
 
             System.Type? type = assembly.GetType(typeFullName, throwOnError: true);
             Debug.Assert(type != null, "type != null");
-            var instance = Activator.CreateInstance(type);
-            // Q.WriteLine($"GetProvider: Instance: {instance!.GetType()}");
-            // Q.WriteLine($"GetProvider: Instance is ResourceProvider?: {instance is ResourceProvider}");
-            return instance as ResourceProvider;
+            object? instance = Activator.CreateInstance(type);
+            Debug.Assert(instance != null, "instance != null");
+            return (ResourceProvider)instance;
         }
 
-
-        /// <summary>
-        /// Diff checks what impacts a hypothetical update will have on the resource's properties.
-        /// </summary>
-        /// <param name="request">The request received from the client.</param>
-        /// <param name="context">The context of the server-side call handler being invoked.</param>
-        /// <returns>The response to send back to the client (wrapped by a task).</returns>
-        public override Task<DiffResponse> Diff(DiffRequest request, ServerCallContext context)
+        public override async Task<DiffResponse> Diff(DiffRequest request, ServerCallContext context)
         {
-            Q.WriteLine("Diff");
+            ImmutableDictionary<string, object> olds = ToDictionary(request.Olds);
+            ImmutableDictionary<string, object> news = ToDictionary(request.News);
 
-            // olds = rpc.deserialize_properties(request.olds, True)
-            // news = rpc.deserialize_properties(request.news, True)
-            // if news[PROVIDER_KEY] == rpc.UNKNOWN:
-            //     provider = get_provider(olds)
-            // else:
-            //     provider = get_provider(news)
-            // result = provider.diff(request.id, olds, news)
-            // fields = {}
-            // if result.changes is not None:
-            //     if result.changes:
-            //         fields["changes"] = proto.DiffResponse.DIFF_SOME # pylint: disable=no-member
-            //     else:
-            //         fields["changes"] = proto.DiffResponse.DIFF_NONE # pylint: disable=no-member
-            // else:
-            //     fields["changes"] = proto.DiffResponse.DIFF_UNKNOWN # pylint: disable=no-member
-            // if result.replaces is not None:
-            //     fields["replaces"] = result.replaces
-            // if result.delete_before_replace is not None:
-            //     fields["deleteBeforeReplace"] = result.delete_before_replace
-            // return proto.DiffResponse(**fields)
+            ResourceProvider provider = request.News.Fields.ContainsKey(Constants.ProviderPropertyName)
+                ? GetProvider(request.News)
+                : GetProvider(request.Olds);
 
-            return Task.FromResult(new DiffResponse());
+            DiffResult result = await provider.DiffAsync(request.Id, olds, news).ConfigureAwait(false);
+
+            var response = new DiffResponse
+            {
+                Changes =
+                    result.Changes == null ? DiffResponse.Types.DiffChanges.DiffUnknown :
+                    result.Changes.Value ? DiffResponse.Types.DiffChanges.DiffSome :
+                    DiffResponse.Types.DiffChanges.DiffNone,
+            };
+            response.Replaces.AddRange(result.Replaces);
+            response.Stables.AddRange(result.Stables);
+            if (result.DeleteBeforeReplace != null)
+            {
+                response.DeleteBeforeReplace = result.DeleteBeforeReplace.Value;
+            }
+            return response;
         }
 
         /// <summary>
@@ -138,25 +129,14 @@ namespace Pulumi.Dynamic
             throw new RpcException(new Status(StatusCode.Unimplemented, ""));
         }
 
-
-        /// <summary>
-        /// Delete tears down an existing resource with the given ID.  If it fails, the resource is assumed to still exist.
-        /// </summary>
-        /// <param name="request">The request received from the client.</param>
-        /// <param name="context">The context of the server-side call handler being invoked.</param>
-        /// <returns>The response to send back to the client (wrapped by a task).</returns>
-        public override Task<Empty> Delete(DeleteRequest request, ServerCallContext context)
+        public override async Task<Empty> Delete(DeleteRequest request, ServerCallContext context)
         {
-            Q.WriteLine("Delete");
+            ImmutableDictionary<string, object> props = ToDictionary(request.Properties);
 
-            // id_ = request.id
-            // props = rpc.deserialize_properties(request.properties)
-            // provider = get_provider(props)
-            // provider.delete(id_, props)
-            // return empty_pb2.Empty()
+            ResourceProvider provider = GetProvider(request.Properties);
+            await provider.DeleteAsync(request.Id, props).ConfigureAwait(false);
 
-
-            return Task.FromResult(new Empty());
+            return new Empty();
         }
 
         public override Task<Empty> Cancel(Empty request, ServerCallContext context)
@@ -166,8 +146,7 @@ namespace Pulumi.Dynamic
         {
             ImmutableDictionary<string, object> props = ToDictionary(request.Properties);
 
-            ResourceProvider? provider = GetProvider(request.Properties);
-            Debug.Assert(provider != null);
+            ResourceProvider provider = GetProvider(request.Properties);
             CreateResult result = await provider.CreateAsync(props).ConfigureAwait(false);
 
             Struct outs = result.Outputs != null
@@ -202,21 +181,9 @@ namespace Pulumi.Dynamic
             });
         }
 
-        /// <summary>
-        /// Configure configures the resource provider with "globals" that control its behavior.
-        /// </summary>
-        /// <param name="request">The request received from the client.</param>
-        /// <param name="context">The context of the server-side call handler being invoked.</param>
-        /// <returns>The response to send back to the client (wrapped by a task).</returns>
         public override Task<ConfigureResponse> Configure(ConfigureRequest request, ServerCallContext context)
             => Task.FromResult(new ConfigureResponse { AcceptSecrets = false });
 
-        /// <summary>
-        /// GetPluginInfo returns generic information about this plugin, like its version.
-        /// </summary>
-        /// <param name="request">The request received from the client.</param>
-        /// <param name="context">The context of the server-side call handler being invoked.</param>
-        /// <returns>The response to send back to the client (wrapped by a task).</returns>
         public override Task<PluginInfo> GetPluginInfo(Empty request, ServerCallContext context)
             => Task.FromResult(new PluginInfo { Version = "0.1.0" });
 
@@ -255,7 +222,6 @@ namespace Pulumi.Dynamic
                 Properties = outs,
             });
         }
-
 
         // TODO dedupe ToDictionary and SerializeAsync from MockMonitor.cs.
         private static ImmutableDictionary<string, object> ToDictionary(Struct s)
