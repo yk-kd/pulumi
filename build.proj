@@ -55,6 +55,7 @@
            DependsOnTargets="DotNetBuild;DotNetInstallPlugin;CopyNugetPackages">
   </Target>
 
+  <!-- TODO distribute pulumi-resource-pulumi-dotnet.cmd -->
   <Target Name="DotNetBuild">
     <Exec Command="&quot;$(MSBuildThisFileDirectory)\scripts\get-version.cmd&quot;" ConsoleToMSBuild="true">
         <Output TaskParameter="ConsoleOutput" PropertyName="Version" />

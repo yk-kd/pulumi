@@ -25,7 +25,7 @@ namespace Pulumi.Dynamic
             var server = new Server(new[] { new ChannelOption(ChannelOptions.MaxReceiveMessageLength, MaxRPCMessageSize) })
             {
                 Services = { Pulumirpc.ResourceProvider.BindService(new ResourceProviderService()) },
-                Ports = { new ServerPort("0.0.0.0", ServerPort.PickUnused, ServerCredentials.Insecure) }
+                Ports = { new ServerPort("localhost", ServerPort.PickUnused, ServerCredentials.Insecure) }
             };
             int boundPort = server.Ports.Single().BoundPort;
             server.Start();
@@ -52,19 +52,31 @@ namespace Pulumi.Dynamic
     {
         private static ResourceProvider? GetProvider(Google.Protobuf.WellKnownTypes.Struct properties)
         {
+            var serializedProviderValue = properties.Fields[Constants.ProviderPropertyName];
+            Q.WriteLine($"GetProvider: serializedProviderValue: {serializedProviderValue.KindCase}");
+
+
             var serializedProvider = properties.Fields[Constants.ProviderPropertyName].StringValue;
-            Debug.Assert(!string.IsNullOrEmpty(serializedProvider));
+            Q.WriteLine($"GetProvider: serializedProvider: {serializedProvider}");
+
+            Debug.Assert(!string.IsNullOrEmpty(serializedProvider), "!string.IsNullOrEmpty(serializedProvider)");
             string[] parts = serializedProvider.Split(':');
-            Debug.Assert(parts.Length == 2);
+            Debug.Assert(parts.Length == 2, "parts.Length == 2");
             string typeFullName = parts[0];
             string brotliBase64 = parts[1];
+
+            Q.WriteLine($"GetProvider: TypeFullName: {typeFullName}");
+            Q.WriteLine($"GetProvider: BrotliBase64: {brotliBase64}");
 
             string path = Assembly.GetExecutingAssembly().Location;
             Assembly assembly = ResourceProvider.LoadFromBrotliBase64String(brotliBase64, path);
 
             Type? type = assembly.GetType(typeFullName, throwOnError: true);
-            Debug.Assert(type != null);
-            return Activator.CreateInstance(type) as ResourceProvider;
+            Debug.Assert(type != null, "type != null");
+            var instance = Activator.CreateInstance(type);
+            Q.WriteLine($"GetProvider: Instance: {instance!.GetType()}");
+            Q.WriteLine($"GetProvider: Instance is ResourceProvider?: {instance is ResourceProvider}");
+            return instance as ResourceProvider;
         }
 
 
@@ -78,7 +90,28 @@ namespace Pulumi.Dynamic
         {
             Q.WriteLine("Diff");
 
-            throw new RpcException(new Status(StatusCode.Unimplemented, ""));
+            // olds = rpc.deserialize_properties(request.olds, True)
+            // news = rpc.deserialize_properties(request.news, True)
+            // if news[PROVIDER_KEY] == rpc.UNKNOWN:
+            //     provider = get_provider(olds)
+            // else:
+            //     provider = get_provider(news)
+            // result = provider.diff(request.id, olds, news)
+            // fields = {}
+            // if result.changes is not None:
+            //     if result.changes:
+            //         fields["changes"] = proto.DiffResponse.DIFF_SOME # pylint: disable=no-member
+            //     else:
+            //         fields["changes"] = proto.DiffResponse.DIFF_NONE # pylint: disable=no-member
+            // else:
+            //     fields["changes"] = proto.DiffResponse.DIFF_UNKNOWN # pylint: disable=no-member
+            // if result.replaces is not None:
+            //     fields["replaces"] = result.replaces
+            // if result.delete_before_replace is not None:
+            //     fields["deleteBeforeReplace"] = result.delete_before_replace
+            // return proto.DiffResponse(**fields)
+
+            return Task.FromResult(new DiffResponse());
         }
 
         /// <summary>
@@ -90,6 +123,23 @@ namespace Pulumi.Dynamic
         public override Task<UpdateResponse> Update(UpdateRequest request, ServerCallContext context)
         {
             Q.WriteLine("Update");
+
+            // olds = rpc.deserialize_properties(request.olds)
+            // news = rpc.deserialize_properties(request.news)
+            // provider = get_provider(news)
+
+            // result = provider.update(request.id, olds, news)
+            // outs = {}
+            // if result.outs is not None:
+            //     outs = result.outs
+            // outs[PROVIDER_KEY] = news[PROVIDER_KEY]
+
+            // loop = asyncio.new_event_loop()
+            // outs_proto = loop.run_until_complete(rpc.serialize_properties(outs, {}))
+            // loop.close()
+
+            // fields = {"properties": outs_proto}
+            // return proto.UpdateResponse(**fields)
 
             throw new RpcException(new Status(StatusCode.Unimplemented, ""));
         }
@@ -104,7 +154,15 @@ namespace Pulumi.Dynamic
         public override Task<Google.Protobuf.WellKnownTypes.Empty> Delete(DeleteRequest request, ServerCallContext context)
         {
             Q.WriteLine("Delete");
-            throw new RpcException(new Status(StatusCode.Unimplemented, ""));
+
+            // id_ = request.id
+            // props = rpc.deserialize_properties(request.properties)
+            // provider = get_provider(props)
+            // provider.delete(id_, props)
+            // return empty_pb2.Empty()
+
+
+            return Task.FromResult(new Google.Protobuf.WellKnownTypes.Empty());
         }
 
         /// <summary>
@@ -125,7 +183,7 @@ namespace Pulumi.Dynamic
         /// <returns>The response to send back to the client (wrapped by a task).</returns>
         public override async Task<CreateResponse> Create(CreateRequest request, ServerCallContext context)
         {
-            Q.WriteLine("Create");
+            Q.WriteLine("**Create JVP**");
 
             // props = rpc.deserialize_properties(request.properties)
             // provider = get_provider(props)
@@ -142,7 +200,7 @@ namespace Pulumi.Dynamic
 
 
             ResourceProvider? provider = GetProvider(request.Properties);
-            Debug.Assert(provider != null);
+            Debug.Assert(provider != null, "provider != null");
             CreateResult result = await provider.CreateAsync(new object()).ConfigureAwait(false);
 
             var outs = new Google.Protobuf.WellKnownTypes.Struct();
@@ -208,7 +266,29 @@ namespace Pulumi.Dynamic
         {
             Q.WriteLine("Read");
 
-            throw new RpcException(new Status(StatusCode.Unimplemented, ""));
+            // id_ = request.id
+            // props = rpc.deserialize_properties(request.properties)
+            // provider = get_provider(props)
+            // result = provider.read(id_, props)
+            // outs = result.outs
+            // outs[PROVIDER_KEY] = props[PROVIDER_KEY]
+
+            // loop = asyncio.new_event_loop()
+            // outs_proto = loop.run_until_complete(rpc.serialize_properties(outs, {}))
+            // loop.close()
+
+            // fields = {"id": result.id, "properties": outs_proto}
+            // return proto.ReadResponse(**fields)
+
+            string id = request.Id;
+            var outs = request.Properties;
+            //var outs = new Google.Protobuf.WellKnownTypes.Struct();
+            //outs.Fields.Add(Constants.ProviderPropertyName, request.Properties.Fields[Constants.ProviderPropertyName]);
+            return Task.FromResult(new ReadResponse
+            {
+                Id = id,
+                Properties = outs,
+            });
         }
     }
 }

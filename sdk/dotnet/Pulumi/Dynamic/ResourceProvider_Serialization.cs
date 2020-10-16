@@ -41,10 +41,10 @@ namespace Pulumi.Dynamic
             }
             memory.Position = 0;
 
-            var loadContext = new ProviderLoadContext(dependencyDirectory);
-            return loadContext.LoadFromStream(memory);
+            // var loadContext = new ProviderLoadContext(dependencyDirectory);
+            // return loadContext.LoadFromStream(memory);
 
-            //return AssemblyLoadContext.Default.LoadFromStream(memory);
+            return AssemblyLoadContext.Default.LoadFromStream(memory);
         }
 
         internal sealed class ProviderLoadContext : AssemblyLoadContext
