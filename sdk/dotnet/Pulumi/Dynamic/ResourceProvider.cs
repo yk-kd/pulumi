@@ -61,21 +61,13 @@ namespace Pulumi.Dynamic
         public virtual Task<ReadResult> ReadAsync(string id, object props)
             => Task.FromResult(new ReadResult());
 
-        // /**
-        // * Update updates an existing resource with new values.
-        // *
-        // * @param id The ID of the resource to update.
-        // * @param olds The old values of properties to update.
-        // * @param news The new values of properties to update.
-        // */
-        // update?: (id: resource.ID, olds: any, news: any) => Promise<UpdateResult>;
-
-        //     def update(self, _id: str, _olds: Any, _news: Any) -> UpdateResult:
-        //         """
-        //         Update updates an existing resource with new values.
-        //         """
-        //         return UpdateResult()
-        public virtual Task<UpdateResult> UpdateAsync(string id, object olds, object news)
+        /// <summary>
+        /// Update updates an existing resource with new values.
+        /// </summary>
+        /// <param name="id">The ID of the resource to update.</param>
+        /// <param name="olds">The old values of properties to update.</param>
+        /// <param name="news">The new values of properties to update.</param>
+        public virtual Task<UpdateResult> UpdateAsync(string id, ImmutableDictionary<string, object> olds, ImmutableDictionary<string, object> news)
             => Task.FromResult(new UpdateResult());
 
         /// <summary>
@@ -143,7 +135,7 @@ namespace Pulumi.Dynamic
         /// <summary>
         /// The ID of the created resource.
         /// </summary>
-        public string? Id { get; set; }
+        public string Id { get; set; } = null!;
 
         private Dictionary<string, object>? _outputs;
 
@@ -170,13 +162,19 @@ namespace Pulumi.Dynamic
     }
 
     /// <summary>
-    /// UpdateResult represents the results of a call to `ResourceProvider.update`.
+    /// UpdateResult represents the results of a call to <see cref="ResourceProvider.UpdateAsync"/>.
     /// </summary>
     public sealed class UpdateResult
     {
-        // /**
-        // * Any properties that were computed during updating.
-        // */
-        // readonly outs?: any;
+        private Dictionary<string, object>? _outputs;
+
+        /// <summary>
+        /// Any properties that were computed during updating.
+        /// </summary>
+        public Dictionary<string, object> Outputs
+        {
+            get => _outputs ??= new Dictionary<string, object>();
+            set => _outputs = value;
+        }
     }
 }

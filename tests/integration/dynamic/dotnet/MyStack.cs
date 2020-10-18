@@ -29,7 +29,7 @@ class RandomResourceProvider : Pulumi.Dynamic.ResourceProvider
 class Random : Pulumi.Dynamic.Resource
 {
     [Output("val")]
-    public Output<string> Value { get; set; }
+    public Output<string> Value { get; set; } = null!;
 
     public Random(string name, CustomResourceOptions? options = null)
         : base(new RandomResourceProvider(), name, new RandomArgs(), options)

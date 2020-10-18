@@ -99,34 +99,21 @@ namespace Pulumi.Dynamic
             return response;
         }
 
-        /// <summary>
-        /// Update updates an existing resource with new values.
-        /// </summary>
-        /// <param name="request">The request received from the client.</param>
-        /// <param name="context">The context of the server-side call handler being invoked.</param>
-        /// <returns>The response to send back to the client (wrapped by a task).</returns>
-        public override Task<UpdateResponse> Update(UpdateRequest request, ServerCallContext context)
+        public override async Task<UpdateResponse> Update(UpdateRequest request, ServerCallContext context)
         {
-            Q.WriteLine("Update");
+            ImmutableDictionary<string, object> olds = ToDictionary(request.Olds);
+            ImmutableDictionary<string, object> news = ToDictionary(request.News);
 
-            // olds = rpc.deserialize_properties(request.olds)
-            // news = rpc.deserialize_properties(request.news)
-            // provider = get_provider(news)
+            ResourceProvider provider = GetProvider(request.News);
 
-            // result = provider.update(request.id, olds, news)
-            // outs = {}
-            // if result.outs is not None:
-            //     outs = result.outs
-            // outs[PROVIDER_KEY] = news[PROVIDER_KEY]
+            UpdateResult result = await provider.UpdateAsync(request.Id, olds, news).ConfigureAwait(false);
 
-            // loop = asyncio.new_event_loop()
-            // outs_proto = loop.run_until_complete(rpc.serialize_properties(outs, {}))
-            // loop.close()
+            Struct outs = result.Outputs != null
+                ? await SerializeAsync(result.Outputs).ConfigureAwait(false)
+                : new Struct();
+            outs.Fields.Add(Constants.ProviderPropertyName, request.News.Fields[Constants.ProviderPropertyName]);
 
-            // fields = {"properties": outs_proto}
-            // return proto.UpdateResponse(**fields)
-
-            throw new RpcException(new Status(StatusCode.Unimplemented, ""));
+            return new UpdateResponse { Properties = outs };
         }
 
         public override async Task<Empty> Delete(DeleteRequest request, ServerCallContext context)
