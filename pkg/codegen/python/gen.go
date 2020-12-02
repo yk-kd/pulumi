@@ -515,8 +515,15 @@ func (mod *modContext) getRelImportFromRoot() string {
 func (mod *modContext) genResourceModule(w io.Writer) {
 	contract.Assert(len(mod.resources) != 0)
 
+	rel, err := filepath.Rel(mod.mod, "")
+	contract.Assert(err == nil)
+	relRoot := path.Dir(rel)
+	relImport := relPathToRelImport(relRoot)
+
 	fmt.Fprintf(w, "\ndef _register_module():\n")
-	fmt.Fprintf(w, "    import pulumi")
+	fmt.Fprintf(w, "    import pulumi\n")
+	fmt.Fprintf(w, "    from semver import VersionInfo as _SemverVersion\n")
+	fmt.Fprintf(w, "    from %s import _utilities\n", relImport)
 
 	// Check for provider-only modules.
 	var provider *schema.Resource
@@ -524,8 +531,10 @@ func (mod *modContext) genResourceModule(w io.Writer) {
 		provider = mod.resources[0]
 	} else {
 		fmt.Fprintf(w, "\n\n    class Module(pulumi.runtime.ResourceModule):\n")
+		fmt.Fprintf(w, "        _version = _SemverVersion.parse(_utilities.get_version()\n")
+		fmt.Fprintf(w, "\n")
 		fmt.Fprintf(w, "        def version(self):\n")
-		fmt.Fprintf(w, "            return None\n")
+		fmt.Fprintf(w, "            return Module._version\n")
 		fmt.Fprintf(w, "\n")
 		fmt.Fprintf(w, "        def construct(self, name: str, typ: str, urn: str) -> pulumi.Resource:\n")
 
@@ -557,8 +566,10 @@ func (mod *modContext) genResourceModule(w io.Writer) {
 
 	if provider != nil {
 		fmt.Fprintf(w, "\n\n    class Package(pulumi.runtime.ResourcePackage):\n")
+		fmt.Fprintf(w, "        _version = _SemverVersion.parse(_utilities.get_version()\n")
+		fmt.Fprintf(w, "\n")
 		fmt.Fprintf(w, "        def version(self):\n")
-		fmt.Fprintf(w, "            return None\n")
+		fmt.Fprintf(w, "            return Package._version\n")
 		fmt.Fprintf(w, "\n")
 		fmt.Fprintf(w, "        def construct_provider(self, name: str, typ: str, urn: str) -> pulumi.ProviderResource:\n")
 		fmt.Fprintf(w, "            if typ != \"%v\":\n", provider.Token)
