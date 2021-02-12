@@ -264,6 +264,12 @@ func (p *providerServer) Construct(ctx context.Context,
 		return nil, err
 	}
 
+	// Ensure all outstanding RPCs have completed before proceeding. Also, prevent any new RPCs from happening.
+	pulumiCtx.waitForRPCs()
+	if pulumiCtx.rpcError != nil {
+		return nil, errors.Wrap(pulumiCtx.rpcError, "waiting for RPCs")
+	}
+
 	rpcURN, _, _, err := result.URN.ToURNOutput().awaitURN(ctx)
 	if err != nil {
 		return nil, err
