@@ -34,6 +34,10 @@ var tracing string
 // Main is the typical entrypoint for a resource provider plugin.  Using it isn't required but can cut down
 // significantly on the amount of boilerplate necessary to fire up a new resource provider.
 func Main(name string, provMaker func(*HostClient) (pulumirpc.ResourceProviderServer, error)) error {
+	return main(name, provMaker, false /*schema*/)
+}
+
+func main(name string, provMaker func(*HostClient) (pulumirpc.ResourceProviderServer, error), schema bool) error {
 	flag.StringVar(&tracing, "tracing", "", "Emit tracing to a Zipkin-compatible tracing endpoint")
 	flag.Parse()
 
