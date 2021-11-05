@@ -151,5 +151,10 @@ namespace Pulumi.Tests.Mocks
         {
             return Deployment.TryTestAsync(mocks, runner => runner.RunAsync(func, null), new TestOptions { IsPreview = false });
         }
+
+        public static Task<(ImmutableArray<Resource> Resources, Exception? Exception)> Run(IMocks mocks, Func<IDictionary<string, object?>> func)
+        {
+            return RunAsync(mocks, () => Task.FromResult(func()));
+        }
     }
 }

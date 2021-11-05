@@ -265,6 +265,12 @@ namespace Pulumi
             this._aliases = aliases.ToImmutable();
 
             Deployment.InternalInstance.ReadOrRegisterResource(this, remote, urn => new DependencyResource(urn), args, options);
+
+            // Sanity check that the URN is not-null. ReadOrRegisterResource should have initialised it and it can cause non-obvious errors
+            // if it somehow is left null when we hit NRE later.
+            if (Urn == null) {
+                throw new Exception(string.Format("Uninitialized `Urn` property on {0}:{1} resource. Please report to https://github.com/pulumi/pulumi/issues", _type, _name));
+            }
         }
 
         /// <summary>
