@@ -164,8 +164,12 @@ require (
 )
 
 require (
+	github.com/evanphx/json-patch v0.5.2
+	github.com/mattbaird/jsonpatch v0.0.0-20200820163806-098863c1fc24
+	github.com/ryboe/q v1.0.15
+)
+
+require (
 	github.com/kr/text v0.2.0 // indirect
-	github.com/mattbaird/jsonpatch v0.0.0-20200820163806-098863c1fc24 // indirect
 	github.com/rogpeppe/go-internal v1.6.1 // indirect
-	github.com/ryboe/q v1.0.15 // indirect
 )

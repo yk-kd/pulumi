@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	applyjsonpatch "github.com/evanphx/json-patch"
 	"github.com/mattbaird/jsonpatch"
 	"github.com/pulumi/pulumi/pkg/v3/backend"
 	"github.com/pulumi/pulumi/pkg/v3/backend/httpstate/client"
@@ -26,6 +27,7 @@ import (
 	"github.com/pulumi/pulumi/pkg/v3/resource/stack"
 	"github.com/pulumi/pulumi/pkg/v3/secrets"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 )
 
 // cloudSnapshotPersister persists snapshots to the Pulumi service.
@@ -101,5 +103,19 @@ func serializeDeploymentAsJSONPatch(previousDeployment, deployment *apitype.Depl
 		return nil, err
 	}
 
-	return json.Marshal(patch)
+	rawPatch, err := json.Marshal(patch)
+	assertSame(rawPreviousDeployment, rawPatch, rawDeployment)
+	return rawPatch, err
+}
+
+func assertSame(previousDeployment, patch, expected []byte) {
+	decodedPatch, err := applyjsonpatch.DecodePatch(patch)
+	contract.AssertNoError(err)
+
+	actual, err := decodedPatch.Apply(previousDeployment)
+	contract.AssertNoError(err)
+
+	contract.Assertf(applyjsonpatch.Equal(expected, actual),
+		"applied patch not equal to expected; expected=%s, actual=%s, previous=%s, patch=%s",
+		expected, actual, previousDeployment, patch)
 }
