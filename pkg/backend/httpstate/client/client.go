@@ -29,6 +29,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/plugin"
 
 	"github.com/blang/semver"
+	"github.com/ryboe/q"
 
 	"github.com/pulumi/pulumi/pkg/v3/engine"
 	"github.com/pulumi/pulumi/pkg/v3/util/validation"
@@ -850,6 +851,29 @@ func (pc *Client) PatchUpdateCheckpoint(ctx context.Context, update UpdateIdenti
 
 	// It is safe to retry this PATCH operation, because it is logically idempotent, since we send the entire
 	// deployment instead of a set of changes to apply.
+	return pc.updateRESTCall(ctx, "PATCH", getUpdatePath(update, "checkpoint"), nil, req, nil,
+		updateAccessToken(token), httpCallOptions{RetryAllMethods: true, GzipCompress: true})
+}
+
+// PatchUpdateCheckpoint2 patches the checkpoint for the indicated update with the given contents.
+func (pc *Client) PatchUpdateCheckpoint2(ctx context.Context, update UpdateIdentifier,
+	sequence int, patch json.RawMessage, token string, deployment *apitype.DeploymentV3) error {
+
+	// TODO: Remove the `deployment` argument.
+	rawDeployment, err := json.Marshal(deployment)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Delete these log lines.
+	q.Q(fmt.Sprintf("Before (seq=%v, len=%v) = %s", sequence, len(rawDeployment), rawDeployment))
+	q.Q(fmt.Sprintf("After  (seq=%v, len=%v) = %s", sequence, len(patch), patch))
+
+	// TODO: Replace with the call to the actual new endpoint that accepts the sequence and patch.
+	req := apitype.PatchUpdateCheckpointRequest{
+		Version:    3,
+		Deployment: rawDeployment,
+	}
 	return pc.updateRESTCall(ctx, "PATCH", getUpdatePath(update, "checkpoint"), nil, req, nil,
 		updateAccessToken(token), httpCallOptions{RetryAllMethods: true, GzipCompress: true})
 }

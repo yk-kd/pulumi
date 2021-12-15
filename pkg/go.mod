@@ -162,3 +162,10 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
+
+require (
+	github.com/kr/text v0.2.0 // indirect
+	github.com/mattbaird/jsonpatch v0.0.0-20200820163806-098863c1fc24 // indirect
+	github.com/rogpeppe/go-internal v1.6.1 // indirect
+	github.com/ryboe/q v1.0.15 // indirect
+)

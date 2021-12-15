@@ -16,22 +16,27 @@ package httpstate
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
+	"github.com/mattbaird/jsonpatch"
 	"github.com/pulumi/pulumi/pkg/v3/backend"
 	"github.com/pulumi/pulumi/pkg/v3/backend/httpstate/client"
 	"github.com/pulumi/pulumi/pkg/v3/resource/deploy"
 	"github.com/pulumi/pulumi/pkg/v3/resource/stack"
 	"github.com/pulumi/pulumi/pkg/v3/secrets"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 )
 
 // cloudSnapshotPersister persists snapshots to the Pulumi service.
 type cloudSnapshotPersister struct {
-	context     context.Context         // The context to use for client requests.
-	update      client.UpdateIdentifier // The UpdateIdentifier for this update sequence.
-	tokenSource *tokenSource            // A token source for interacting with the service.
-	backend     *cloudBackend           // A backend for communicating with the service
-	sm          secrets.Manager
+	context             context.Context         // The context to use for client requests.
+	update              client.UpdateIdentifier // The UpdateIdentifier for this update sequence.
+	tokenSource         *tokenSource            // A token source for interacting with the service.
+	backend             *cloudBackend           // A backend for communicating with the service
+	sm                  secrets.Manager
+	sequence            int
+	lastSavedDeployment *apitype.DeploymentV3
 }
 
 func (persister *cloudSnapshotPersister) SecretsManager() secrets.Manager {
@@ -47,7 +52,19 @@ func (persister *cloudSnapshotPersister) Save(snapshot *deploy.Snapshot) error {
 	if err != nil {
 		return fmt.Errorf("serializing deployment: %w", err)
 	}
-	return persister.backend.client.PatchUpdateCheckpoint(persister.context, persister.update, deployment, token)
+	previousDeployment := persister.lastSavedDeployment
+	defer func() {
+		persister.sequence++
+		persister.lastSavedDeployment = deployment
+	}()
+
+	patch, err := serializeDeploymentAsJSONPatch(previousDeployment, deployment)
+	if err != nil {
+		return fmt.Errorf("serializing deployment patch: %w", err)
+	}
+
+	return persister.backend.client.PatchUpdateCheckpoint2(persister.context, persister.update, persister.sequence,
+		patch, token, deployment)
 }
 
 var _ backend.SnapshotPersister = (*cloudSnapshotPersister)(nil)
@@ -61,4 +78,28 @@ func (cb *cloudBackend) newSnapshotPersister(ctx context.Context, update client.
 		backend:     cb,
 		sm:          sm,
 	}
+}
+
+func serializeDeploymentAsJSONPatch(previousDeployment, deployment *apitype.DeploymentV3) ([]byte, error) {
+	var err error
+
+	rawPreviousDeployment := []byte("{}")
+	if previousDeployment != nil {
+		rawPreviousDeployment, err = json.Marshal(previousDeployment)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	rawDeployment, err := json.Marshal(deployment)
+	if err != nil {
+		return nil, err
+	}
+
+	patch, err := jsonpatch.CreatePatch(rawPreviousDeployment, rawDeployment)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(patch)
 }
