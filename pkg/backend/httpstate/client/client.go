@@ -884,7 +884,7 @@ func logDeltaInfo(rawDeployment, rawDelta json.RawMessage) {
 	deltaBytes := len(rawDelta)
 	delta := string(rawDelta)
 
-	q.Q(fullBytes, "😭😭😭", full, deltaBytes, "😀😀😀", delta)
+	q.Q(full, delta, fullBytes, "😭😭😭", deltaBytes, "😀😀😀")
 }
 
 // CancelUpdate cancels the indicated update.
