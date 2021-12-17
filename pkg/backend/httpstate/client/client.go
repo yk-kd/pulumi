@@ -856,7 +856,7 @@ func (pc *Client) PatchUpdateCheckpoint(ctx context.Context, update UpdateIdenti
 }
 
 // PatchUpdateCheckpoint2 patches the checkpoint for the indicated update with the given contents.
-func (pc *Client) PatchUpdateCheckpoint2(ctx context.Context, update UpdateIdentifier,
+func (pc *Client) PatchUpdateCheckpointDelta(ctx context.Context, update UpdateIdentifier,
 	sequence int, patch json.RawMessage, token string, deployment *apitype.DeploymentV3) error {
 
 	// TODO: Remove the `deployment` argument.
@@ -866,16 +866,25 @@ func (pc *Client) PatchUpdateCheckpoint2(ctx context.Context, update UpdateIdent
 	}
 
 	// TODO: Delete these log lines.
-	q.Q(fmt.Sprintf("Before (seq=%v, len=%v) = %s", sequence, len(rawDeployment), rawDeployment))
-	q.Q(fmt.Sprintf("After  (seq=%v, len=%v) = %s", sequence, len(patch), patch))
+	logDeltaInfo(rawDeployment, patch)
 
 	// TODO: Replace with the call to the actual new endpoint that accepts the sequence and patch.
 	req := apitype.PatchUpdateCheckpointRequest{
-		Version:    3,
-		Deployment: rawDeployment,
+		Version:         3,
+		DeploymentDelta: patch,
 	}
 	return pc.updateRESTCall(ctx, "PATCH", getUpdatePath(update, "checkpoint"), nil, req, nil,
 		updateAccessToken(token), httpCallOptions{RetryAllMethods: true, GzipCompress: true})
+}
+
+func logDeltaInfo(rawDeployment, rawDelta json.RawMessage) {
+	fullBytes := len(rawDeployment)
+	full := string(rawDeployment)
+
+	deltaBytes := len(rawDelta)
+	delta := string(rawDelta)
+
+	q.Q(fullBytes, "😭😭😭", full, deltaBytes, "😀😀😀", delta)
 }
 
 // CancelUpdate cancels the indicated update.

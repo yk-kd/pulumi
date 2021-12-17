@@ -60,12 +60,16 @@ func (persister *cloudSnapshotPersister) Save(snapshot *deploy.Snapshot) error {
 		persister.lastSavedDeployment = deployment
 	}()
 
+	if previousDeployment == nil {
+		return persister.backend.client.PatchUpdateCheckpoint(persister.context, persister.update, deployment, token)
+	}
+
 	patch, err := serializeDeploymentAsJSONPatch(previousDeployment, deployment)
 	if err != nil {
 		return fmt.Errorf("serializing deployment patch: %w", err)
 	}
 
-	return persister.backend.client.PatchUpdateCheckpoint2(persister.context, persister.update, persister.sequence,
+	return persister.backend.client.PatchUpdateCheckpointDelta(persister.context, persister.update, persister.sequence,
 		patch, token, deployment)
 }
 

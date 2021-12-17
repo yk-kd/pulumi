@@ -205,9 +205,10 @@ type CompleteUpdateRequest struct {
 // API. The `Deployment` field is expected to contain a serialized `Deployment` value, the schema of which is indicated
 // by the `Version` field.
 type PatchUpdateCheckpointRequest struct {
-	IsInvalid  bool            `json:"isInvalid"`
-	Version    int             `json:"version"`
-	Deployment json.RawMessage `json:"deployment,omitempty"`
+	IsInvalid       bool            `json:"isInvalid"`
+	Version         int             `json:"version"`
+	Deployment      json.RawMessage `json:"deployment,omitempty"`
+	DeploymentDelta json.RawMessage `json:"deploymentDelta,omitempty"`
 }
 
 // AppendUpdateLogEntryRequest defines the body of a request to the append update log entry endpoint of the service API.
