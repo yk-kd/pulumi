@@ -32,11 +32,12 @@ import (
 
 // cloudSnapshotPersister persists snapshots to the Pulumi service.
 type cloudSnapshotPersister struct {
-	context             context.Context         // The context to use for client requests.
-	update              client.UpdateIdentifier // The UpdateIdentifier for this update sequence.
-	tokenSource         *tokenSource            // A token source for interacting with the service.
-	backend             *cloudBackend           // A backend for communicating with the service
-	sm                  secrets.Manager
+	context     context.Context         // The context to use for client requests.
+	update      client.UpdateIdentifier // The UpdateIdentifier for this update sequence.
+	tokenSource *tokenSource            // A token source for interacting with the service.
+	backend     *cloudBackend           // A backend for communicating with the service
+	sm          secrets.Manager
+
 	sequence            int
 	lastSavedDeployment *apitype.DeploymentV3
 }
