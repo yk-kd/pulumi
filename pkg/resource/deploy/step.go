@@ -15,16 +15,24 @@
 package deploy
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
+	codegenimporter "github.com/pulumi/pulumi/pkg/v3/codegen/importer"
+	"github.com/pulumi/pulumi/pkg/v3/codegen/nodejs"
+	"github.com/pulumi/pulumi/pkg/v3/codegen/pcl"
+	"github.com/pulumi/pulumi/pkg/v3/codegen/schema"
 	"github.com/pulumi/pulumi/pkg/v3/resource/deploy/providers"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/diag"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/diag/colors"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/plugin"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/cmdutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/logging"
 )
@@ -951,6 +959,28 @@ func (s *ImportStep) Apply(preview bool) (resource.Status, StepCompleteFunc, err
 		return rst, nil, err
 	}
 	if issueCheckErrors(s.deployment, s.new, s.new.URN, failures) {
+
+		// TODO: Unclear if we want to do the codegen here. We likely want to return the read state
+		// from any resources that failed to import, and return that from the import operation, and
+		// then do the codegen from the import command, where it's currently done.
+		// Though, this won't help users who already are doing `ResourceOptions.import` and running
+		// into check failures. For that case, we do want to show all the inputs that the user could
+		// specify, to make it easier on the user, so they don't have to try to lookup these values
+		// and format it to be specified in code, so maybe we do want the code generated here for
+		// !s.planned for that case?
+
+		// Note that this generated code isn't quite correct. It doesn't actually specify the
+		// ResourceOption.import option. It'd need to be fixed-up to do that.
+
+		var outputResult bytes.Buffer
+		output := io.Writer(&outputResult)
+		_, err := generateImportDefinition(output, s.old, make(codegenimporter.NameTable))
+		if err != nil {
+			return rst, nil, err
+		}
+		s.deployment.Diag().Errorf(
+			diag.GetResourceInvalidError(s.new.URN), s.new.Type, s.new.URN.Name(), outputResult.String())
+
 		return rst, nil, errors.New("one or more inputs failed to validate")
 	}
 	s.new.Inputs = inputs
@@ -1012,6 +1042,52 @@ func (s *ImportStep) Apply(preview bool) (resource.Status, StepCompleteFunc, err
 	}
 
 	return rst, complete, err
+}
+
+func generateImportDefinition(out io.Writer, res *resource.State, names codegenimporter.NameTable) (bool, error) {
+
+	defer func() {
+		v := recover()
+		if v != nil {
+			errMsg := strings.Builder{}
+			errMsg.WriteString("Your resource has been imported into Pulumi state, but there was an error generating the import code.\n") //nolint:lll
+			errMsg.WriteString("\n")
+			if strings.Contains(fmt.Sprintf("%v", v), "invalid Go source code:") {
+				errMsg.WriteString("You will need to copy and paste the generated code into your Pulumi application and manually edit it to correct any errors.\n\n") //nolint:lll
+			}
+			errMsg.WriteString(fmt.Sprintf("%v\n", v))
+			fmt.Print(errMsg.String())
+		}
+	}()
+
+	resources := []*resource.State{res}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false, err
+	}
+	sink := cmdutil.Diag()
+	ctx, err := plugin.NewContext(sink, sink, nil, nil, cwd, nil, true, nil)
+	if err != nil {
+		return false, err
+	}
+	loader := schema.NewPluginLoader(ctx.Host)
+	return true, codegenimporter.GenerateLanguageDefinitions(out, loader, func(w io.Writer, p *pcl.Program) error {
+		files, _, err := nodejs.GenerateProgram(p) // TODO: don't hard code
+		if err != nil {
+			return err
+		}
+
+		var contents []byte
+		for _, v := range files {
+			contents = v
+		}
+
+		if _, err := w.Write(contents); err != nil {
+			return err
+		}
+		return nil
+	}, resources, names)
 }
 
 // StepOp represents the kind of operation performed by a step.  It evaluates to its string label.
