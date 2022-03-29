@@ -660,3 +660,7 @@ func (host *dotnetLanguageHost) GetPluginInfo(ctx context.Context, req *pbempty.
 		Version: version.Version,
 	}, nil
 }
+
+func (p *dotnetLanguageHost) Start(req *pulumirpc.StartRequest, server pulumirpc.LanguageRuntime_StartServer) error {
+	return errors.New("not supported")
+}
