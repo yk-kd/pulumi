@@ -26,7 +26,6 @@ import (
 	yamlgen "github.com/pulumi/pulumi-yaml/pkg/pulumiyaml/codegen"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/convert"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/dotnet"
-	gogen "github.com/pulumi/pulumi/pkg/v3/codegen/go"
 	hclsyntax "github.com/pulumi/pulumi/pkg/v3/codegen/hcl2/syntax"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/nodejs"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/pcl"
@@ -34,6 +33,7 @@ import (
 	"github.com/pulumi/pulumi/pkg/v3/codegen/schema"
 	"github.com/pulumi/pulumi/pkg/v3/engine"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/diag"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/encoding"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/plugin"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/cmdutil"
@@ -162,13 +162,25 @@ func runConvert(
 	cwd string, mappings []string, from string, language string,
 	outDir string, generateOnly bool,
 ) result.Result {
-	var projectGenerator projectGeneratorFunc
+	pCtx, err := newPluginContext(cwd)
+	if err != nil {
+		return result.FromError(fmt.Errorf("create plugin context: %w", err))
+	}
+	defer contract.IgnoreClose(pCtx.Host)
+
+	// Translate well known languages to runtimes
 	switch language {
 	case "csharp", "c#":
-		projectGenerator = dotnet.GenerateProject
-	case "go":
-		projectGenerator = gogen.GenerateProject
+		language = "dotnet"
 	case "typescript":
+		language = "nodejs"
+	}
+
+	var projectGenerator projectGeneratorFunc
+	switch language {
+	case "dotnet":
+		projectGenerator = dotnet.GenerateProject
+	case "nodejs":
 		projectGenerator = nodejs.GenerateProject
 	case "python":
 		projectGenerator = python.GenerateProject
@@ -183,28 +195,39 @@ func runConvert(
 			projectGenerator = pclGenerateProject
 			break
 		}
-		fallthrough
-
+		return result.Errorf("unrecognized language %q", language)
 	default:
-		return result.Errorf("cannot generate programs for %q language", language)
+		projectGenerator = func(directory string, project workspace.Project, program *pcl.Program) error {
+			languagePlugin, err := pCtx.Host.LanguageRuntime(cwd, cwd, language, nil)
+			if err != nil {
+				return err
+			}
+
+			projectBytes, err := encoding.JSON.Marshal(project)
+			if err != nil {
+				return err
+			}
+			projectJSON := string(projectBytes)
+
+			err = languagePlugin.GenerateProject(directory, projectJSON, program.Source())
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 	}
 
 	if outDir != "." {
 		err := os.MkdirAll(outDir, 0o755)
 		if err != nil {
-			return result.FromError(fmt.Errorf("could not create output directory: %w", err))
+			return result.FromError(fmt.Errorf("create output directory: %w", err))
 		}
 	}
-
-	pCtx, err := newPluginContext(cwd)
-	if err != nil {
-		return result.FromError(fmt.Errorf("could not create plugin host: %w", err))
-	}
-	defer contract.IgnoreClose(pCtx.Host)
 	loader := schema.NewPluginLoader(pCtx.Host)
 	mapper, err := convert.NewPluginMapper(pCtx.Host, from, mappings)
 	if err != nil {
-		return result.FromError(fmt.Errorf("could not create provider mapper: %w", err))
+		return result.FromError(fmt.Errorf("create provider mapper: %w", err))
 	}
 
 	var proj *workspace.Project
@@ -212,13 +235,13 @@ func runConvert(
 	if from == "" || from == "yaml" {
 		proj, program, err = yamlgen.Eject(cwd, loader)
 		if err != nil {
-			return result.FromError(fmt.Errorf("could not load yaml program: %w", err))
+			return result.FromError(fmt.Errorf("load yaml program: %w", err))
 		}
 	} else if from == "pcl" {
 		if e.GetBool(env.Dev) {
 			proj, program, err = pclEject(cwd, loader)
 			if err != nil {
-				return result.FromError(fmt.Errorf("could not load pcl program: %w", err))
+				return result.FromError(fmt.Errorf("load pcl program: %w", err))
 			}
 		} else {
 			return result.FromError(fmt.Errorf("unrecognized source %q", from))
@@ -226,7 +249,7 @@ func runConvert(
 	} else if from == "tf" {
 		proj, program, err = tfgen.Eject(cwd, loader, mapper)
 		if err != nil {
-			return result.FromError(fmt.Errorf("could not load terraform program: %w", err))
+			return result.FromError(fmt.Errorf("load terraform program: %w", err))
 		}
 	} else {
 		// Try and load the converter plugin for this
@@ -275,7 +298,7 @@ func runConvert(
 
 	err = projectGenerator(outDir, *proj, program)
 	if err != nil {
-		return result.FromError(fmt.Errorf("could not generate output program: %w", err))
+		return result.FromError(fmt.Errorf("generate output program: %w", err))
 	}
 
 	// Project should now exist at outDir. Run installDependencies in that directory (if requested)

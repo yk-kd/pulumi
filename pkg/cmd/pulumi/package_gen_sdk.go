@@ -15,7 +15,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -26,7 +25,6 @@ import (
 	javagen "github.com/pulumi/pulumi-java/pkg/codegen/java"
 
 	"github.com/pulumi/pulumi/pkg/v3/codegen/dotnet"
-	gogen "github.com/pulumi/pulumi/pkg/v3/codegen/go"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/nodejs"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/python"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/schema"
@@ -82,25 +80,85 @@ func newGenSdkCommand() *cobra.Command {
 }
 
 func genSDK(language, out string, pkg *schema.Package, overlays string) error {
-	var f func(string, *schema.Package, map[string][]byte) (map[string][]byte, error)
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get current working directory: %w", err)
+	}
+
+	var f func(string, *schema.Package, map[string][]byte) error
+
+	writeWrapper := func(
+		f func(string, *schema.Package, map[string][]byte) (map[string][]byte, error),
+	) func(string, *schema.Package, map[string][]byte) error {
+		return func(directory string, p *schema.Package, extraFiles map[string][]byte) error {
+			m, err := f("pulumi", p, extraFiles)
+			if err != nil {
+				return err
+			}
+
+			err = os.RemoveAll(directory)
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			for k, v := range m {
+				path := filepath.Join(directory, k)
+				err := os.MkdirAll(filepath.Dir(path), 0o700)
+				if err != nil {
+					return err
+				}
+				err = os.WriteFile(path, v, 0o600)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+
 	switch language {
 	case "dotnet":
-		f = dotnet.GeneratePackage
-	case "go":
-		if overlays != "" {
-			return errors.New("overlays are not supported for Go")
-		}
-		f = func(s string, p *schema.Package, m map[string][]byte) (map[string][]byte, error) {
-			return gogen.GeneratePackage(s, pkg)
-		}
+		f = writeWrapper(dotnet.GeneratePackage)
 	case "nodejs":
-		f = nodejs.GeneratePackage
+		f = writeWrapper(nodejs.GeneratePackage)
 	case "python":
-		f = python.GeneratePackage
+		f = writeWrapper(python.GeneratePackage)
 	case "java":
-		f = javagen.GeneratePackage
+		f = writeWrapper(javagen.GeneratePackage)
 	default:
-		return fmt.Errorf("unknown language %q", language)
+		f = func(directory string, pkg *schema.Package, extraFiles map[string][]byte) error {
+			// Ensure the target directory is clean, but created.
+			err = os.RemoveAll(directory)
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			err := os.MkdirAll(directory, 0o700)
+			if err != nil {
+				return err
+			}
+
+			jsonBytes, err := pkg.MarshalJSON()
+			if err != nil {
+				return err
+			}
+
+			pCtx, err := newPluginContext(cwd)
+			if err != nil {
+				return fmt.Errorf("create plugin context: %w", err)
+			}
+			defer contract.IgnoreClose(pCtx.Host)
+
+			languagePlugin, err := pCtx.Host.LanguageRuntime(cwd, cwd, language, nil)
+			if err != nil {
+				return err
+			}
+
+			err = languagePlugin.GeneratePackage(directory, string(jsonBytes), extraFiles)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 	}
 
 	extraFiles := make(map[string][]byte)
@@ -124,26 +182,10 @@ func genSDK(language, out string, pkg *schema.Package, overlays string) error {
 		}
 	}
 
-	m, err := f("pulumi", pkg, extraFiles)
+	root := filepath.Join(out, language)
+	err = f(root, pkg, extraFiles)
 	if err != nil {
 		return err
-	}
-
-	root := filepath.Join(out, language)
-	err = os.RemoveAll(root)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	for k, v := range m {
-		path := filepath.Join(root, k)
-		err := os.MkdirAll(filepath.Dir(path), 0o700)
-		if err != nil {
-			return err
-		}
-		err = os.WriteFile(path, v, 0o600)
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }

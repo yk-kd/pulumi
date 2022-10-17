@@ -17,38 +17,37 @@ instance as a gRPC server so that it can be used as a Pulumi plugin.
 
 """
 
-from typing import Dict, List, Set, Optional, TypeVar, Any, cast
 import argparse
 import asyncio
 import sys
+from typing import Any, Dict, List, Optional, Set, TypeVar, cast
 
 import grpc
 import grpc.aio
-
-from google.protobuf import struct_pb2
-from pulumi.provider.provider import InvokeResult, Provider, CallResult, ConstructResult
-from pulumi.resource import (
-    ProviderResource,
-    Resource,
-    DependencyResource,
-    DependencyProviderResource,
-    _parse_resource_reference,
-)
-from pulumi.runtime import known_types, proto, rpc
-from pulumi.runtime.proto import provider_pb2_grpc, ResourceProviderServicer
-from pulumi.runtime.stack import wait_for_rpcs
-import pulumi
 import pulumi.resource
 import pulumi.runtime.config
 import pulumi.runtime.settings
+from google.protobuf import struct_pb2
+from pulumi.provider.provider import CallResult, ConstructResult, InvokeResult, Provider
+from pulumi.resource import (
+    DependencyProviderResource,
+    DependencyResource,
+    ProviderResource,
+    Resource,
+    _parse_resource_reference,
+)
+from pulumi.runtime import known_types, proto, rpc
+from pulumi.runtime.proto import provider_pb2_grpc
+from pulumi.runtime.stack import wait_for_rpcs
 
+import pulumi
 
 # _MAX_RPC_MESSAGE_SIZE raises the gRPC Max Message size from `4194304` (4mb) to `419430400` (400mb)
 _MAX_RPC_MESSAGE_SIZE = 1024 * 1024 * 400
 _GRPC_CHANNEL_OPTIONS = [("grpc.max_receive_message_length", _MAX_RPC_MESSAGE_SIZE)]
 
 
-class ProviderServicer(ResourceProviderServicer):
+class ProviderServicer(provider_pb2_grpc.ResourceProviderServicer):
     """Implements a subset of `ResourceProvider` methods to support
     `Construct` and other methods invoked by the engine when the user
     program creates a remote `ComponentResource` (with `remote=true`

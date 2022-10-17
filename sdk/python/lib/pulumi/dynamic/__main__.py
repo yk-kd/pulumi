@@ -14,16 +14,16 @@
 
 import asyncio
 import base64
-from concurrent import futures
 import sys
 import time
+from concurrent import futures
 
 import dill
 import grpc
 from google.protobuf import empty_pb2
-from pulumi.runtime import proto, rpc
-from pulumi.runtime.proto import provider_pb2_grpc, ResourceProviderServicer
 from pulumi.dynamic import ResourceProvider
+from pulumi.runtime import proto, rpc
+from pulumi.runtime.proto import provider_pb2_grpc
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 PROVIDER_KEY = "__provider"
@@ -38,7 +38,7 @@ def get_provider(props) -> ResourceProvider:
     return dill.loads(byts)
 
 
-class DynamicResourceProviderServicer(ResourceProviderServicer):
+class DynamicResourceProviderServicer(provider_pb2_grpc.ResourceProviderServicer):
     def CheckConfig(self, request, context):
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("CheckConfig is not implemented by the dynamic provider")

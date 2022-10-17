@@ -17,19 +17,20 @@ import logging
 import sys
 import traceback
 from contextlib import suppress
+
 import grpc
 
-from ._workspace import PulumiFn
 from .. import log
-from ..runtime.proto import language_pb2, plugin_pb2, LanguageRuntimeServicer
-from ..runtime import run_in_stack, reset_options, set_all_config
-from ..runtime.rpc_manager import RPC_MANAGER
 from ..errors import RunError
+from ..runtime import reset_options, run_in_stack, set_all_config
+from ..runtime.proto import language_pb2, language_pb2_grpc, plugin_pb2
+from ..runtime.rpc_manager import RPC_MANAGER
+from ._workspace import PulumiFn
 
 _py_version_less_than_3_7 = sys.version_info[0] == 3 and sys.version_info[1] < 7
 
 
-class LanguageServer(LanguageRuntimeServicer):
+class LanguageServer(language_pb2_grpc.LanguageRuntimeServicer):
     program: PulumiFn
 
     def __init__(self, program: PulumiFn) -> None:
