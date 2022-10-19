@@ -51,7 +51,7 @@ export interface Workspace {
     /**
      * Environment values scoped to the current workspace. These will be supplied to every Pulumi command.
      */
-    envVars: { [key: string]: string };
+    envVars: { [key: string]: string | { secret: string } };
     /**
      * Returns the settings object for the current project if any.
      */

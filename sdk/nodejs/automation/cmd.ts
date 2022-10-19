@@ -44,7 +44,7 @@ const unknownErrCode = -2;
 export async function runPulumiCmd(
     args: string[],
     cwd: string,
-    additionalEnv: { [key: string]: string },
+    additionalEnv: { [key: string]: string | { secret: string } },
     onOutput?: (data: string) => void,
 ): Promise<CommandResult> {
     // all commands should be run in non-interactive mode.
@@ -58,7 +58,18 @@ export async function runPulumiCmd(
 
     const config = store?.config ?? {};
 
-    const env = { ...config, ...additionalEnv };
+    const env = { ...config };
+
+    for (const key of Object.keys(additionalEnv)) {
+        const val = additionalEnv[key];
+        if (typeof val === "string") {
+            env[key] = val;
+        } else if ("secret" in val) {
+            env[key] = val.secret;
+        } else {
+            throw new Error(`unexpected env value '${val}' for key '${key}'`);
+        }
+    }
 
     try {
         const proc = execa("pulumi", args, { env, cwd });

@@ -78,6 +78,8 @@
         "automation/localWorkspace.ts",
         "automation/minimumVersion.ts",
         "automation/projectSettings.ts",
+        "automation/remoteStack.ts",
+        "automation/remoteWorkspace.ts",
         "automation/stackSettings.ts",
         "automation/server.ts",
         "automation/stack.ts",
