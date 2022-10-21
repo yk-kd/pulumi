@@ -1,0 +1,4 @@
+changes:
+- type: feat
+  scope: sdk/dotnet
+  description: Expose the `LocalSerializer` class.
