@@ -13,16 +13,19 @@
 # limitations under the License.
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from ._cmd import CommandResult
 
 
 class CommandError(Exception):
-    def __init__(self, command_result: "CommandResult"):
+    def __init__(self, command_result: "CommandResult", command: Optional[List[str]] = None):
         self.name = "CommandError"
-        super().__init__(str(command_result))
+        message = str(command_result)
+        if command:
+            message = " ".join(command) + " -> " + message
+        super().__init__(message)
 
 
 class StackNotFoundError(CommandError):
@@ -78,7 +81,7 @@ compilation_error_regex = re.compile(
 )
 
 
-def create_command_error(command_result: "CommandResult") -> CommandError:
+def create_command_error(command_result: "CommandResult", command: Optional[List[str]] = None) -> CommandError:
     stderr = command_result.stderr
     stdout = command_result.stdout
     if not_found_regex.search(stderr):
@@ -95,4 +98,4 @@ def create_command_error(command_result: "CommandResult") -> CommandError:
         return InlineSourceRuntimeError(command_result)
     if runtime_error_regex.search(stdout):
         return RuntimeError(command_result)
-    return CommandError(command_result)
+    return CommandError(command_result, command)

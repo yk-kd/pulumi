@@ -162,7 +162,7 @@ class Stack:
         """
         return Stack(stack_name, workspace, StackInitMode.CREATE_OR_SELECT)
 
-    def __init__(self, name: str, workspace: Workspace, mode: StackInitMode) -> None:
+    def __init__(self, name: str, workspace: Workspace, mode: StackInitMode, select=True) -> None:
         """
         Stack is an isolated, independently configurable instance of a Pulumi program.
         Stack exposes methods for the full pulumi lifecycle (up/preview/refresh/destroy), as well as managing configuration.
@@ -183,12 +183,20 @@ class Stack:
         if mode is StackInitMode.CREATE:
             workspace.create_stack(name)
         elif mode is StackInitMode.SELECT:
-            workspace.select_stack(name)
-        elif mode is StackInitMode.CREATE_OR_SELECT:
-            try:
+            if select:
                 workspace.select_stack(name)
-            except StackNotFoundError:
-                workspace.create_stack(name)
+            # TODO: if not select, verify the stack exists
+        elif mode is StackInitMode.CREATE_OR_SELECT:
+            if select:
+                try:
+                    workspace.select_stack(name)
+                except StackNotFoundError:
+                    workspace.create_stack(name)
+            else:
+                try:
+                    workspace.create_stack(name)
+                except StackAlreadyExistsError:
+                    pass
 
     def __repr__(self):
         return f"Stack(stack_name={self.name!r}, workspace={self.workspace!r}, mode={self._mode!r})"
@@ -257,6 +265,8 @@ class Stack:
             args.append("--plan")
             args.append(plan)
 
+        args.extend(self._remote_args())
+
         kind = ExecKind.LOCAL.value
         on_exit = None
 
@@ -299,7 +309,9 @@ class Stack:
         try:
             up_result = self._run_pulumi_cmd_sync(args, on_output)
             outputs = self.outputs()
-            summary = self.info(show_secrets)
+            # If it's a remote workspace, explicitly set show_secrets to False to prevent attempting to
+            # load the project file.
+            summary = self.info(show_secrets and not self._is_remote)
             assert summary is not None
         finally:
             _cleanup(temp_dir, log_watcher_thread, on_exit)
@@ -369,6 +381,8 @@ class Stack:
         if plan is not None:
             args.append("--save-plan")
             args.append(plan)
+
+        args.extend(self._remote_args())
 
         kind = ExecKind.LOCAL.value
         on_exit = None
@@ -470,6 +484,8 @@ class Stack:
         args = ["refresh", "--yes", "--skip-preview"]
         args.extend(extra_args)
 
+        args.extend(self._remote_args())
+
         kind = ExecKind.INLINE.value if self.workspace.program else ExecKind.LOCAL.value
         args.extend(["--exec-kind", kind])
 
@@ -488,7 +504,9 @@ class Stack:
         finally:
             _cleanup(temp_dir, log_watcher_thread)
 
-        summary = self.info(show_secrets)
+        # If it's a remote workspace, explicitly set show_secrets to False to prevent attempting to
+        # load the project file.
+        summary = self.info(show_secrets and not self._is_remote)
         assert summary is not None
         return RefreshResult(
             stdout=refresh_result.stdout, stderr=refresh_result.stderr, summary=summary
@@ -535,6 +553,8 @@ class Stack:
         args = ["destroy", "--yes", "--skip-preview"]
         args.extend(extra_args)
 
+        args.extend(self._remote_args())
+
         kind = ExecKind.INLINE.value if self.workspace.program else ExecKind.LOCAL.value
         args.extend(["--exec-kind", kind])
 
@@ -553,7 +573,9 @@ class Stack:
         finally:
             _cleanup(temp_dir, log_watcher_thread)
 
-        summary = self.info(show_secrets)
+        # If it's a remote workspace, explicitly set show_secrets to False to prevent attempting to
+        # load the project file.
+        summary = self.info(show_secrets and not self._is_remote)
         assert summary is not None
         return DestroyResult(
             stdout=destroy_result.stdout, stderr=destroy_result.stderr, summary=summary
@@ -715,6 +737,8 @@ class Stack:
         self, args: List[str], on_output: Optional[OnOutput] = None
     ) -> CommandResult:
         envs = {"PULUMI_DEBUG_COMMANDS": "true"}
+        if self._is_remote():
+            envs = {**envs, "PULUMI_EXPERIMENTAL": "true"}
         if self.workspace.pulumi_home is not None:
             envs = {**envs, "PULUMI_HOME": self.workspace.pulumi_home}
         envs = {**envs, **self.workspace.env_vars}
@@ -725,6 +749,14 @@ class Stack:
         result = _run_pulumi_cmd(args, self.workspace.work_dir, envs, on_output)
         self.workspace.post_command_callback(self.name)
         return result
+
+    def _is_remote(self) -> bool:
+        from pulumi.automation._local_workspace import LocalWorkspace
+        return self.workspace._remote if isinstance(self.workspace, LocalWorkspace) else False
+
+    def _remote_args(self) -> List[str]:
+        from pulumi.automation._local_workspace import LocalWorkspace
+        return self.workspace._remote_args() if isinstance(self.workspace, LocalWorkspace) else []
 
 
 def _parse_extra_args(**kwargs) -> List[str]:

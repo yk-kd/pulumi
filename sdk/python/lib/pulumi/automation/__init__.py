@@ -161,6 +161,17 @@ from ._stack import (
     fully_qualified_stack_name,
 )
 
+from pulumi.automation._remote_workspace import (
+    RemoteWorkspaceOptions,
+    RemoteGitAuth,
+    Secret,
+    create_remote_stack_git_source,
+    create_or_select_remote_stack_git_source,
+    select_remote_stack_git_source,
+)
+
+from pulumi.automation._remote_stack import RemoteStack
+
 __all__ = [
     # _cmd
     "CommandResult",
@@ -225,6 +236,15 @@ __all__ = [
     "RefreshResult",
     "DestroyResult",
     "fully_qualified_stack_name",
+    # _remote_workspace
+    "RemoteWorkspaceOptions",
+    "RemoteGitAuth",
+    "Secret",
+    "create_remote_stack_git_source",
+    "create_or_select_remote_stack_git_source",
+    "select_remote_stack_git_source",
+    # _remote_stack
+    "RemoteStack",
     # sub-modules
     "errors",
     "events",

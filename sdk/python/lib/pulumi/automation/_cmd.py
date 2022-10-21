@@ -75,6 +75,6 @@ def _run_pulumi_cmd(
         stderr=stderr_contents, stdout="\n".join(stdout_chunks), code=code
     )
     if code != 0:
-        raise create_command_error(result)
+        raise create_command_error(result, cmd)
 
     return result
