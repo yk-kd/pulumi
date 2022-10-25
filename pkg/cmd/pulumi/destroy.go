@@ -26,6 +26,7 @@ import (
 	"github.com/pulumi/pulumi/pkg/v3/engine"
 	"github.com/pulumi/pulumi/pkg/v3/resource/deploy"
 	"github.com/pulumi/pulumi/pkg/v3/resource/graph"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/cmdutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
@@ -42,6 +43,19 @@ func newDestroyCmd() *cobra.Command {
 	var message string
 	var execKind string
 	var execAgent string
+
+	// Flags for remote operations.
+	var remote bool
+	var envVars []string
+	var preRunCommands []string
+	var gitBranch string
+	var gitCommit string
+	var gitRepoDir string
+	var gitAuthAccessToken string
+	var gitAuthSSHPrivateKey string
+	var gitAuthSSHPrivateKeyPath string
+	var gitAuthPassword string
+	var gitAuthUsername string
 
 	// Flags for engine.UpdateOptions.
 	var jsonDisplay bool
@@ -60,8 +74,13 @@ func newDestroyCmd() *cobra.Command {
 	var targetDependents bool
 	var excludeProtected bool
 
+	use, cmdArgs := "destroy", cmdutil.NoArgs
+	if remoteSupported() {
+		use, cmdArgs = "destroy [url]", cmdutil.MaximumNArgs(1)
+	}
+
 	var cmd = &cobra.Command{
-		Use:        "destroy",
+		Use:        use,
 		Aliases:    []string{"down"},
 		SuggestFor: []string{"delete", "kill", "remove", "rm", "stop"},
 		Short:      "Destroy all existing resources in the stack",
@@ -75,9 +94,15 @@ func newDestroyCmd() *cobra.Command {
 			"`--remove` flag to delete the stack.\n" +
 			"\n" +
 			"Warning: this command is generally irreversible and should be used with great care.",
-		Args: cmdutil.NoArgs,
+		Args: cmdArgs,
 		Run: cmdutil.RunResultFunc(func(cmd *cobra.Command, args []string) result.Result {
 			ctx := commandContext()
+
+			// Remote implies we're skipping previews.
+			if remote {
+				skipPreview = true
+			}
+
 			yes = yes || skipPreview || skipConfirmations()
 			interactive := cmdutil.Interactive()
 			if !interactive && !yes {
@@ -115,6 +140,24 @@ func newDestroyCmd() *cobra.Command {
 				opts.Display.SuppressPermalink = true
 			} else {
 				opts.Display.SuppressPermalink = false
+			}
+
+			if remote {
+				if len(args) == 0 {
+					return result.FromError(errors.New("must specify remote URL"))
+				}
+
+				err = validateUnsupportedRemoteFlags(false, nil, false, "", jsonDisplay, nil,
+					nil, refresh, showConfig, showReplacementSteps, showSames, false,
+					suppressOutputs, "default", targets, nil, nil,
+					targetDependents, "", stackConfigFile)
+				if err != nil {
+					return result.FromError(err)
+				}
+
+				return runDeployment(ctx, opts.Display, apitype.Destroy, stack, envVars, preRunCommands, args[0],
+					gitBranch, gitCommit, gitRepoDir, gitAuthAccessToken, gitAuthSSHPrivateKey,
+					gitAuthSSHPrivateKeyPath, gitAuthPassword, gitAuthUsername)
 			}
 
 			filestateBackend, err := isFilestateBackend(opts.Display)
@@ -315,6 +358,48 @@ func newDestroyCmd() *cobra.Command {
 	cmd.PersistentFlags().BoolVarP(
 		&yes, "yes", "y", false,
 		"Automatically approve and perform the destroy after previewing it")
+
+	// Remote flags
+	if remoteSupported() {
+		cmd.PersistentFlags().BoolVar(
+			&remote, "remote", false,
+			"[EXPERIMENTAL] Run the operation remotely")
+		cmd.PersistentFlags().StringArrayVar(
+			&envVars, "remote-env", []string{},
+			"[EXPERIMENTAL] Environment variables to use in the remote operation of the form NAME=value for "+
+				"plaintext values or NAME#=value for secret values (e.g. `--remote-env FOO=bar "+
+				"--remote-env BAR#=secret`)")
+		cmd.PersistentFlags().StringArrayVar(
+			&preRunCommands, "remote-pre-run-command", []string{},
+			"[EXPERIMENTAL] Commands to run before the remote operation")
+		cmd.PersistentFlags().StringVar(
+			&gitBranch, "remote-git-branch", "",
+			"[EXPERIMENTAL] Git branch to deploy; this is mutually exclusive with --remote-git-branch; "+
+				"either value needs to be specified")
+		cmd.PersistentFlags().StringVar(
+			&gitCommit, "remote-git-commit", "",
+			"[EXPERIMENTAL] Git commit hash of the commit to deploy (if used, HEAD will be in detached mode); "+
+				"this is mutually exclusive with --remote-git-branch; either value needs to be specified")
+		cmd.PersistentFlags().StringVar(
+			&gitRepoDir, "remote-git-repo-dir", "",
+			"[EXPERIMENTAL] The directory to work from in the project's source repository "+
+				"where Pulumi.yaml is located; used when Pulumi.yaml is not in the project source root")
+		cmd.PersistentFlags().StringVar(
+			&gitAuthAccessToken, "remote-git-auth-access-token", "",
+			"[EXPERIMENTAL] Git personal access token")
+		cmd.PersistentFlags().StringVar(
+			&gitAuthSSHPrivateKey, "remote-git-auth-ssh-private-key", "",
+			"[EXPERIMENTAL] Git SSH private key; use --remote-git-auth-password for the password, if needed")
+		cmd.PersistentFlags().StringVar(
+			&gitAuthSSHPrivateKeyPath, "remote-git-auth-ssh-private-key-path", "",
+			"[EXPERIMENTAL] Git SSH private key path; use --remote-git-auth-password for the password, if needed")
+		cmd.PersistentFlags().StringVar(
+			&gitAuthPassword, "remote-git-auth-password", "",
+			"[EXPERIMENTAL] Git password; for use with username or with an SSH private key")
+		cmd.PersistentFlags().StringVar(
+			&gitAuthUsername, "remote-git-auth-username", "",
+			"[EXPERIMENTAL] Git username")
+	}
 
 	if hasDebugCommands() {
 		cmd.PersistentFlags().StringVar(
