@@ -1,4 +1,4 @@
-// Copyright 2016-2021, Pulumi Corporation.
+// Copyright 2016-2022, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,9 +48,13 @@ type LocalWorkspace struct {
 	workDir         string
 	pulumiHome      string
 	program         pulumi.RunFunc
-	envvars         map[string]string
+	envvars         map[string]EnvVarValue
 	secretsProvider string
 	pulumiVersion   semver.Version
+	repo            *GitRepo
+	remote          bool
+	preRunCommands  []string
+	supportsFlags   map[string]bool
 }
 
 var settingsExtensions = []string{".yaml", ".yml", ".json"}
@@ -236,21 +240,34 @@ func (l *LocalWorkspace) GetEnvVars() map[string]string {
 	if l.envvars == nil {
 		return nil
 	}
-	return l.envvars
+	result := make(map[string]string, len(l.envvars))
+	for k, v := range l.envvars {
+		result[k] = v.Value
+	}
+	return result
 }
 
 // SetEnvVars sets the specified map of environment values scoped to the current workspace.
 // These values will be passed to all Workspace and Stack level commands.
 func (l *LocalWorkspace) SetEnvVars(envvars map[string]string) error {
-	return setEnvVars(l, envvars)
-}
-
-func setEnvVars(l *LocalWorkspace, envvars map[string]string) error {
 	if envvars == nil {
 		return errors.New("unable to set nil environment values")
 	}
 	if l.envvars == nil {
-		l.envvars = map[string]string{}
+		l.envvars = map[string]EnvVarValue{}
+	}
+	for k, v := range envvars {
+		l.envvars[k] = EnvVarValue{Value: v}
+	}
+	return nil
+}
+
+func setEnvVars(l *LocalWorkspace, envvars map[string]EnvVarValue) error {
+	if envvars == nil {
+		return errors.New("unable to set nil environment values")
+	}
+	if l.envvars == nil {
+		l.envvars = map[string]EnvVarValue{}
 	}
 	for k, v := range envvars {
 		l.envvars[k] = v
@@ -261,10 +278,14 @@ func setEnvVars(l *LocalWorkspace, envvars map[string]string) error {
 // SetEnvVar sets the specified environment value scoped to the current workspace.
 // This value will be passed to all Workspace and Stack level commands.
 func (l *LocalWorkspace) SetEnvVar(key, value string) {
+	setEnvVar(l, key, value, false /*secret*/)
+}
+
+func setEnvVar(l *LocalWorkspace, key, value string, secret bool) {
 	if l.envvars == nil {
-		l.envvars = map[string]string{}
+		l.envvars = map[string]EnvVarValue{}
 	}
-	l.envvars[key] = value
+	l.envvars[key] = EnvVarValue{Value: value, Secret: secret}
 }
 
 // UnsetEnvVar unsets the specified environment value scoped to the current workspace.
@@ -323,6 +344,9 @@ func (l *LocalWorkspace) CreateStack(ctx context.Context, stackName string) erro
 	args := []string{"stack", "init", stackName}
 	if l.secretsProvider != "" {
 		args = append(args, "--secrets-provider", l.secretsProvider)
+	}
+	if l.remote {
+		args = append(args, "--no-select")
 	}
 	stdout, stderr, errCode, err := l.runPulumiCmdSync(ctx, args...)
 	if err != nil {
@@ -576,6 +600,35 @@ func (l *LocalWorkspace) runPulumiCmdSync(
 	)
 }
 
+func (l *LocalWorkspace) supportsPulumiCmdFlag(ctx context.Context, flag string, args ...string) (bool, error) {
+	key := strings.Join(append(args, flag), " ")
+	if supports, ok := l.supportsFlags[key]; ok {
+		return supports, nil
+	}
+
+	env := []string{
+		"PULUMI_DEBUG_COMMANDS=true",
+		"PULUMI_EXPERIMENTAL=true",
+	}
+
+	// Run the command with `--help`, and then we'll look for the flag in the output.
+	stdout, _, _, err := runPulumiCommandSync(ctx, l.WorkDir(), nil, nil, env, append(args, "--help")...)
+	if err != nil {
+		return false, err
+	}
+
+	// Does the help test in stdout mention the flag? If so, assume it's supported.
+	if strings.Contains(stdout, flag) {
+		if l.supportsFlags == nil {
+			l.supportsFlags = make(map[string]bool)
+		}
+		l.supportsFlags[key] = true
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // NewLocalWorkspace creates and configures a LocalWorkspace. LocalWorkspaceOptions can be used to
 // configure things like the working directory, the program to execute, and to seed the directory with source code
 // from a git repository.
@@ -598,7 +651,7 @@ func NewLocalWorkspace(ctx context.Context, opts ...LocalWorkspaceOption) (Works
 		workDir = dir
 	}
 
-	if lwOpts.Repo != nil {
+	if lwOpts.Repo != nil && !lwOpts.Remote {
 		// now do the git clone
 		projDir, err := setupGitRepo(ctx, workDir, lwOpts.Repo)
 		if err != nil {
@@ -613,15 +666,18 @@ func NewLocalWorkspace(ctx context.Context, opts ...LocalWorkspaceOption) (Works
 	}
 
 	l := &LocalWorkspace{
-		workDir:    workDir,
-		program:    program,
-		pulumiHome: lwOpts.PulumiHome,
+		workDir:        workDir,
+		preRunCommands: lwOpts.PreRunCommands,
+		program:        program,
+		pulumiHome:     lwOpts.PulumiHome,
+		remote:         lwOpts.Remote,
+		repo:           lwOpts.Repo,
 	}
 
 	// optOut indicates we should skip the version check.
 	optOut := cmdutil.IsTruthy(os.Getenv(skipVersionCheckVar))
 	if val, ok := lwOpts.EnvVars[skipVersionCheckVar]; ok {
-		optOut = optOut || cmdutil.IsTruthy(val)
+		optOut = optOut || cmdutil.IsTruthy(val.Value)
 	}
 	currentVersion, err := l.getPulumiVersion(ctx)
 	if err != nil {
@@ -629,6 +685,17 @@ func NewLocalWorkspace(ctx context.Context, opts ...LocalWorkspaceOption) (Works
 	}
 	if l.pulumiVersion, err = parseAndValidatePulumiVersion(minimumVersion, currentVersion, optOut); err != nil {
 		return nil, err
+	}
+
+	// If remote was specified, ensure the CLI supports it.
+	if !optOut && l.remote {
+		supportsRemote, err := l.supportsPulumiCmdFlag(ctx, "--remote", "preview")
+		if err != nil {
+			return nil, err
+		}
+		if !supportsRemote {
+			return nil, errors.New("Pulumi CLI does not support --remote")
+		}
 	}
 
 	if lwOpts.Project != nil {
@@ -647,7 +714,7 @@ func NewLocalWorkspace(ctx context.Context, opts ...LocalWorkspaceOption) (Works
 	}
 
 	// setup
-	if lwOpts.Repo != nil && lwOpts.Repo.Setup != nil {
+	if !lwOpts.Remote && lwOpts.Repo != nil && lwOpts.Repo.Setup != nil {
 		err := lwOpts.Repo.Setup(ctx, l)
 		if err != nil {
 			return nil, errors.Wrap(err, "error while running setup function")
@@ -667,6 +734,13 @@ func NewLocalWorkspace(ctx context.Context, opts ...LocalWorkspaceOption) (Works
 	}
 
 	return l, nil
+}
+
+// EnvVarValue represents the value of an envvar. A value can be a secret, which is passed along
+// to remote operations when used with remote workspaces, otherwise, it has no affect.
+type EnvVarValue struct {
+	Value  string
+	Secret bool
 }
 
 type localWorkspaceOptions struct {
@@ -689,7 +763,11 @@ type localWorkspaceOptions struct {
 	SecretsProvider string
 	// EnvVars is a map of environment values scoped to the workspace.
 	// These values will be passed to all Workspace and Stack level commands.
-	EnvVars map[string]string
+	EnvVars map[string]EnvVarValue
+	// Whether the workspace represents a remote workspace.
+	Remote bool
+	// PreRunCommands is an optional list of arbitrary commands to run before the remote Pulumi operation is invoked.
+	PreRunCommands []string
 }
 
 // LocalWorkspaceOption is used to customize and configure a LocalWorkspace at initialization time.
@@ -805,7 +883,39 @@ func SecretsProvider(secretsProvider string) LocalWorkspaceOption {
 // These values will be passed to all Workspace and Stack level commands.
 func EnvVars(envvars map[string]string) LocalWorkspaceOption {
 	return localWorkspaceOption(func(lo *localWorkspaceOptions) {
+		if envvars == nil {
+			lo.EnvVars = nil
+			return
+		}
+
+		result := make(map[string]EnvVarValue)
+		for k, v := range envvars {
+			result[k] = EnvVarValue{Value: v}
+		}
+		lo.EnvVars = result
+	})
+}
+
+// envVars is a map of environment values scoped to the workspace.
+// These values will be passed to all Workspace and Stack level commands.
+// This variant supports EnvVarValue.
+func envVars(envvars map[string]EnvVarValue) LocalWorkspaceOption {
+	return localWorkspaceOption(func(lo *localWorkspaceOptions) {
 		lo.EnvVars = envvars
+	})
+}
+
+// remote is set on the local workspace to indicate it is actually a remote workspace.
+func remote(remote bool) LocalWorkspaceOption {
+	return localWorkspaceOption(func(lo *localWorkspaceOptions) {
+		lo.Remote = remote
+	})
+}
+
+// preRunCommands is an optional list of arbitrary commands to run before the remote Pulumi operation is invoked.
+func preRunCommands(commands ...string) LocalWorkspaceOption {
+	return localWorkspaceOption(func(lo *localWorkspaceOptions) {
+		lo.PreRunCommands = commands
 	})
 }
 
