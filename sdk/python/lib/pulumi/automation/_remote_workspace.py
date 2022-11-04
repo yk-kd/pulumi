@@ -185,12 +185,14 @@ def _create_local_workspace(
     opts: Optional[RemoteWorkspaceOptions] = None,
 ) -> LocalWorkspace:
 
-    if commit_hash is not None and branch is not None:
+    if not url:
+        raise Exception("url is required.")
+    if commit_hash and branch:
         raise Exception("commit_hash and branch cannot both be specified.")
-    if commit_hash is None and branch is None:
+    if not commit_hash and not branch:
         raise Exception("at least commit_hash or branch are required.")
     if auth is not None:
-        if auth.ssh_private_key is not None and auth.ssh_private_key_path is not None:
+        if auth.ssh_private_key and auth.ssh_private_key_path:
             raise Exception(
                 "ssh_private_key and ssh_private_key_path cannot both be specified."
             )

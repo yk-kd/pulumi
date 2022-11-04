@@ -78,11 +78,7 @@ func TestStackCommands(t *testing.T) {
 		t.Parallel()
 
 		e := ptesting.NewEnvironment(t)
-		defer func() {
-			if !t.Failed() {
-				e.DeleteEnvironment()
-			}
-		}()
+		defer deleteIfNotFailed(e)
 
 		integration.CreateBasicPulumiRepo(e)
 		e.SetBackend(e.LocalURL())
@@ -112,6 +108,43 @@ func TestStackCommands(t *testing.T) {
 		// cloud: "Stack 'integration-test-59f645ba/pulumi-test/anor-londo' not found"
 		assert.Contains(t, err, "anor-londo")
 		e.RunCommand("pulumi", "stack", "rm", "--yes")
+	})
+
+	t.Run("StackInitNoSelect", func(t *testing.T) {
+		t.Parallel()
+
+		e := ptesting.NewEnvironment(t)
+		defer func() {
+			if !t.Failed() {
+				e.DeleteEnvironment()
+			}
+		}()
+
+		integration.CreateBasicPulumiRepo(e)
+		e.SetBackend(e.LocalURL())
+		e.RunCommand("pulumi", "stack", "init", "first")
+		e.RunCommand("pulumi", "stack", "init", "second")
+
+		// Last one created is always selected.
+		stacks, current := integration.GetStacks(e)
+		if current == nil {
+			t.Fatalf("No stack was labeled as current among: %v", stacks)
+		}
+		assert.Equal(t, "second", *current)
+
+		// Specifying `--no-select` prevents selection.
+		e.RunCommand("pulumi", "stack", "init", "third", "--no-select")
+		stacks, current = integration.GetStacks(e)
+		if current == nil {
+			t.Fatalf("No stack was labeled as current among: %v", stacks)
+		}
+		// "second" should still be selected.
+		assert.Equal(t, "second", *current)
+
+		assert.Equal(t, 3, len(stacks))
+		assert.Contains(t, stacks, "first")
+		assert.Contains(t, stacks, "second")
+		assert.Contains(t, stacks, "third")
 	})
 
 	t.Run("StackUnselect", func(t *testing.T) {

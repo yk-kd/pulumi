@@ -79,7 +79,7 @@ namespace Pulumi.Automation
         {
             if (!IsFullyQualifiedStackName(args.StackName))
             {
-                throw new ArgumentException($"{nameof(args.StackName)} not fully qualified.");
+                throw new ArgumentException($"{nameof(args.StackName)} \"{args.StackName}\" not fully qualified.");
             }
             if (string.IsNullOrWhiteSpace(args.Url))
             {
