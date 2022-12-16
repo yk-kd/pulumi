@@ -24,7 +24,7 @@ func NewResource(ctx *pulumi.Context,
 	}
 
 	if args.Baz != nil {
-		args.Baz = pulumi.ToSecret(args.Baz).(pulumi.StringPtrOutput)
+		args.Baz = pulumi.ToSecret(args.Baz.ToStringPtrOutput()).(pulumi.StringPtrOutput)
 	}
 	secrets := pulumi.AdditionalSecretOutputs([]string{
 		"baz",
