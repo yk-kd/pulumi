@@ -672,6 +672,8 @@ func (rm *resmon) SupportsFeature(ctx context.Context,
 		hasSupport = true
 	case "deletedWith":
 		hasSupport = true
+	case "callbacks":
+		hasSupport = true
 	}
 
 	logging.V(5).Infof("ResourceMonitor.SupportsFeature(id: %s) = %t", req.Id, hasSupport)
@@ -696,12 +698,16 @@ func (rm *resmon) Invoke(ctx context.Context, req *pulumirpc.ResourceInvokeReque
 
 	label := fmt.Sprintf("ResourceMonitor.Invoke(%s)", tok)
 
+	// TODO: Always keep output values when unmarshaling, and add a new AcceptOutputValues to the request
+	keepOutputValues := tok == "pulumi:pulumi:invokeCallback"
+
 	args, err := plugin.UnmarshalProperties(
 		req.GetArgs(), plugin.MarshalOptions{
-			Label:         label,
-			KeepUnknowns:  true,
-			KeepSecrets:   true,
-			KeepResources: true,
+			Label:            label,
+			KeepUnknowns:     true,
+			KeepSecrets:      true,
+			KeepResources:    true,
+			KeepOutputValues: keepOutputValues,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal %v args: %w", tok, err)
@@ -723,10 +729,11 @@ func (rm *resmon) Invoke(ctx context.Context, req *pulumirpc.ResourceInvokeReque
 	}
 
 	mret, err := plugin.MarshalProperties(ret, plugin.MarshalOptions{
-		Label:         label,
-		KeepUnknowns:  true,
-		KeepSecrets:   true,
-		KeepResources: keepResources,
+		Label:            label,
+		KeepUnknowns:     true,
+		KeepSecrets:      true,
+		KeepResources:    keepResources,
+		KeepOutputValues: keepOutputValues,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal %v return: %w", tok, err)
@@ -1209,6 +1216,7 @@ func (rm *resmon) RegisterResource(ctx context.Context,
 			Protect:              protect,
 			PropertyDependencies: propertyDependencies,
 			Providers:            providerRefs,
+			Transformations:      req.GetTransformations(),
 		}
 		constructResult, err := provider.Construct(rm.constructInfo, t, name, parent, props, options)
 		if err != nil {
