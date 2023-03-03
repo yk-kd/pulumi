@@ -320,6 +320,23 @@ func makeBuiltins(primitives []*builtin) []*builtin {
 	return builtins
 }
 
+func format(fullname string) {
+	gofmt := exec.Command("gofmt", "-s", "-w", fullname)
+	stderr, err := gofmt.StderrPipe()
+	if err != nil {
+		log.Fatalf("failed to pipe stderr from gofmt: %v", err)
+	}
+	go func() {
+		_, err := io.Copy(os.Stderr, stderr)
+		if err != nil {
+			panic(fmt.Sprintf("unexpected error running gofmt: %v", err))
+		}
+	}()
+	if err := gofmt.Run(); err != nil {
+		log.Fatalf("failed to gofmt %v: %v", fullname, err)
+	}
+}
+
 func main() {
 	templates, err := template.New("templates").Funcs(funcs).ParseGlob("./generate/templates/*")
 	if err != nil {
@@ -349,20 +366,7 @@ func main() {
 		}
 		f.Close()
 
-		gofmt := exec.Command("gofmt", "-s", "-w", fullname)
-		stderr, err := gofmt.StderrPipe()
-		if err != nil {
-			log.Fatalf("failed to pipe stderr from gofmt: %v", err)
-		}
-		go func() {
-			_, err := io.Copy(os.Stderr, stderr)
-			if err != nil {
-				panic(fmt.Sprintf("unexpected error running gofmt: %v", err))
-			}
-		}()
-		if err := gofmt.Run(); err != nil {
-			log.Fatalf("failed to gofmt %v: %v", fullname, err)
-		}
+		format(fullname)
 	}
 }
 

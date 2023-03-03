@@ -19,6 +19,7 @@ GO_TEST_FAST = $(PYTHON) ../../scripts/go-test.py $(GO_TEST_FAST_FLAGS)
 
 gen::
 	go generate ./pulumi/...
+	cd ./generate && go run .
 
 ensure: go.ensure
 
