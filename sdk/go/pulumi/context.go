@@ -374,7 +374,11 @@ func (ctx *Context) Call(tok string, args Input, output Output, self Resource, o
 		return nil, errors.New("call token must not be empty")
 	}
 
-	output = ctx.newOutput(reflect.TypeOf(output))
+	if self != nil {
+		output = ctx.newOutput(reflect.TypeOf(output), self)
+	} else {
+		output = ctx.newOutput(reflect.TypeOf(output))
+	}
 
 	options, err := NewInvokeOptions(opts...)
 	if err != nil {
