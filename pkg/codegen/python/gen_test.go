@@ -100,6 +100,7 @@ func TestGeneratePackage(t *testing.T) {
 		GenPackage: GeneratePackage,
 		Checks: map[string]test.CodegenCheck{
 			"python/py_compile": needsEnv(pyCompileCheck),
+			"python/typecheck":  needsEnv(pyTypeCheck),
 			"python/test":       needsEnv(pyTestCheck),
 		},
 		TestCases: test.PulumiPulumiSDKTests,

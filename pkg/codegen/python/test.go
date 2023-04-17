@@ -10,6 +10,7 @@ import (
 
 	"github.com/pulumi/pulumi/pkg/v3/codegen"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/testing/test"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/testing/iotest"
 	"github.com/pulumi/pulumi/sdk/v3/python"
 )
 
@@ -41,6 +42,45 @@ func pyCompileCheck(t *testing.T, codeDir string) {
 	require.NoError(t, err)
 	args := append([]string{"-m", "py_compile"}, pythonFiles...)
 	test.RunCommand(t, "python syntax check", codeDir, ex, args...)
+}
+
+// Checks typing of generated code with mypy.
+func pyTypeCheck(t *testing.T, codeDir string) {
+	venvDir, err := virtualEnvPath()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	cmd := func(name string, args ...string) error {
+		t.Logf("cd %s && %s %s", codeDir, name, strings.Join(args, " "))
+		cmd := python.VirtualEnvCommand(venvDir, name, args...)
+		cmd.Dir = codeDir
+
+		outw := iotest.LogWriter(t)
+		cmd.Stderr = outw
+		cmd.Stdout = outw
+		return cmd.Run()
+	}
+
+	installPackage := func() error {
+		venvMutex.Lock()
+		defer venvMutex.Unlock()
+		return cmd("python", "-m", "pip", "install", "-e", ".")
+	}
+
+	if err = installPackage(); err != nil {
+		t.Error(err)
+		return
+	}
+
+	if err = cmd(
+		"python", "-m", "mypy", ".",
+		"--exclude", "/_utilities\\.py$", // the generated _utilities.py has some type errors, which we ignore for now.
+	); err != nil {
+		t.Error(err)
+		return
+	}
 }
 
 func GenerateProgramBatchTest(t *testing.T, testCases []test.ProgramTest) {
