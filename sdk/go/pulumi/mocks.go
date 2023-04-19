@@ -80,6 +80,15 @@ func (m *mockMonitor) newURN(parent, typ, name string) string {
 		tokens.QName(name)))
 }
 
+func (m *mockMonitor) GetState(
+	ctx context.Context, _ *empty.Empty, opts ...grpc.CallOption,
+) (*pulumirpc.MonitorState, error) {
+	return &pulumirpc.MonitorState{
+		Project: m.project,
+		Stack:   m.stack,
+	}, nil
+}
+
 func (m *mockMonitor) SupportsFeature(ctx context.Context, in *pulumirpc.SupportsFeatureRequest,
 	opts ...grpc.CallOption,
 ) (*pulumirpc.SupportsFeatureResponse, error) {

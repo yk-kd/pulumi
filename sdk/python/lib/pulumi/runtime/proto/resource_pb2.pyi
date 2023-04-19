@@ -33,6 +33,54 @@ else:
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 @typing_extensions.final
+class MonitorState(google.protobuf.message.Message):
+    """MonitorState is all the current state for the resource monitor, such as stack names, config, and service endpoints."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ORGANIZATION_FIELD_NUMBER: builtins.int
+    PROJECT_FIELD_NUMBER: builtins.int
+    STACK_FIELD_NUMBER: builtins.int
+    PWD_FIELD_NUMBER: builtins.int
+    CONFIG_FIELD_NUMBER: builtins.int
+    DRYRUN_FIELD_NUMBER: builtins.int
+    PARALLEL_FIELD_NUMBER: builtins.int
+    QUERYMODE_FIELD_NUMBER: builtins.int
+    organization: builtins.str
+    """the organization of the stack being deployed into."""
+    project: builtins.str
+    """the project name."""
+    stack: builtins.str
+    """the name of the stack being deployed into."""
+    pwd: builtins.str
+    """the projects's working directory."""
+    @property
+    def config(self) -> google.protobuf.struct_pb2.Struct:
+        """the configuration variables for the current stack."""
+    dryRun: builtins.bool
+    """true if we're only doing a dryrun (preview)."""
+    parallel: builtins.int
+    """the degree of parallelism for resource operations (<=1 for serial)."""
+    queryMode: builtins.bool
+    """true if we're only doing a query."""
+    def __init__(
+        self,
+        *,
+        organization: builtins.str = ...,
+        project: builtins.str = ...,
+        stack: builtins.str = ...,
+        pwd: builtins.str = ...,
+        config: google.protobuf.struct_pb2.Struct | None = ...,
+        dryRun: builtins.bool = ...,
+        parallel: builtins.int = ...,
+        queryMode: builtins.bool = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["config", b"config"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["config", b"config", "dryRun", b"dryRun", "organization", b"organization", "parallel", b"parallel", "project", b"project", "pwd", b"pwd", "queryMode", b"queryMode", "stack", b"stack"]) -> None: ...
+
+global___MonitorState = MonitorState
+
+@typing_extensions.final
 class SupportsFeatureRequest(google.protobuf.message.Message):
     """SupportsFeatureRequest allows a client to test if the resource monitor supports a certain feature, which it may use
     to control the format or types of messages it sends.

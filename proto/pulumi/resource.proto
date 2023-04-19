@@ -33,6 +33,31 @@ service ResourceMonitor {
     rpc ReadResource(ReadResourceRequest) returns (ReadResourceResponse) {}
     rpc RegisterResource(RegisterResourceRequest) returns (RegisterResourceResponse) {}
     rpc RegisterResourceOutputs(RegisterResourceOutputsRequest) returns (google.protobuf.Empty) {}
+
+    rpc GetState(google.protobuf.Empty) returns (MonitorState) {}
+}
+
+// MonitorState is all the current state for the resource monitor, such as stack names, config, and service endpoints.
+message MonitorState {
+    // the organization of the stack being deployed into.
+    string organization = 1;
+    // the project name.
+    string project = 2;
+    // the name of the stack being deployed into.
+    string stack = 3;
+
+    // the projects's working directory.
+    string pwd = 4;
+    // the configuration variables for the current stack.
+    google.protobuf.Struct config = 5;
+
+    // true if we're only doing a dryrun (preview).
+    bool dryRun = 6;
+    // the degree of parallelism for resource operations (<=1 for serial).
+    int32 parallel = 7;
+
+    // true if we're only doing a query.
+    bool queryMode = 8;
 }
 
 // SupportsFeatureRequest allows a client to test if the resource monitor supports a certain feature, which it may use

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	pbempty "github.com/golang/protobuf/ptypes/empty"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/plugin"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
@@ -459,6 +460,10 @@ func (rm *ResourceMonitor) Call(tok tokens.ModuleMember, inputs resource.Propert
 	}
 
 	return outs, deps, nil, nil
+}
+
+func (rm *ResourceMonitor) GetState() (*pulumirpc.MonitorState, error) {
+	return rm.resmon.GetState(context.Background(), &pbempty.Empty{})
 }
 
 func prepareTestTimeout(timeout float64) string {

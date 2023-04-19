@@ -30,6 +30,7 @@ type ResourceMonitorClient interface {
 	ReadResource(ctx context.Context, in *ReadResourceRequest, opts ...grpc.CallOption) (*ReadResourceResponse, error)
 	RegisterResource(ctx context.Context, in *RegisterResourceRequest, opts ...grpc.CallOption) (*RegisterResourceResponse, error)
 	RegisterResourceOutputs(ctx context.Context, in *RegisterResourceOutputsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MonitorState, error)
 }
 
 type resourceMonitorClient struct {
@@ -126,6 +127,15 @@ func (c *resourceMonitorClient) RegisterResourceOutputs(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *resourceMonitorClient) GetState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MonitorState, error) {
+	out := new(MonitorState)
+	err := c.cc.Invoke(ctx, "/pulumirpc.ResourceMonitor/GetState", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ResourceMonitorServer is the server API for ResourceMonitor service.
 // All implementations must embed UnimplementedResourceMonitorServer
 // for forward compatibility
@@ -137,6 +147,7 @@ type ResourceMonitorServer interface {
 	ReadResource(context.Context, *ReadResourceRequest) (*ReadResourceResponse, error)
 	RegisterResource(context.Context, *RegisterResourceRequest) (*RegisterResourceResponse, error)
 	RegisterResourceOutputs(context.Context, *RegisterResourceOutputsRequest) (*emptypb.Empty, error)
+	GetState(context.Context, *emptypb.Empty) (*MonitorState, error)
 	mustEmbedUnimplementedResourceMonitorServer()
 }
 
@@ -164,6 +175,9 @@ func (UnimplementedResourceMonitorServer) RegisterResource(context.Context, *Reg
 }
 func (UnimplementedResourceMonitorServer) RegisterResourceOutputs(context.Context, *RegisterResourceOutputsRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterResourceOutputs not implemented")
+}
+func (UnimplementedResourceMonitorServer) GetState(context.Context, *emptypb.Empty) (*MonitorState, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetState not implemented")
 }
 func (UnimplementedResourceMonitorServer) mustEmbedUnimplementedResourceMonitorServer() {}
 
@@ -307,6 +321,24 @@ func _ResourceMonitor_RegisterResourceOutputs_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ResourceMonitor_GetState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceMonitorServer).GetState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pulumirpc.ResourceMonitor/GetState",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceMonitorServer).GetState(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ResourceMonitor_ServiceDesc is the grpc.ServiceDesc for ResourceMonitor service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -337,6 +369,10 @@ var ResourceMonitor_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterResourceOutputs",
 			Handler:    _ResourceMonitor_RegisterResourceOutputs_Handler,
+		},
+		{
+			MethodName: "GetState",
+			Handler:    _ResourceMonitor_GetState_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
