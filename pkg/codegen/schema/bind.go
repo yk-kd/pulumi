@@ -1562,6 +1562,7 @@ func (t *types) bindFunctionDef(token string) (*Function, hcl.Diagnostics, error
 
 	var inlineObjectAsReturnType bool
 	var returnType Type
+	var returnTypePlain bool
 	if spec.ReturnType != nil && spec.Outputs == nil {
 		// compute the return type from the spec
 		if spec.ReturnType.ObjectTypeSpec != nil {
@@ -1581,6 +1582,7 @@ func (t *types) bindFunctionDef(token string) (*Function, hcl.Diagnostics, error
 				return nil, diags, fmt.Errorf("error binding outputs for function %v: %w", token, err)
 			}
 			returnType = out
+			returnTypePlain = spec.ReturnType.TypeSpec.Plain
 		} else {
 			// Setting `spec.ReturnType` to a value without setting either `TypeSpec` or `ObjectTypeSpec`
 			// indicates a logical bug in our marshaling code.
@@ -1607,6 +1609,7 @@ func (t *types) bindFunctionDef(token string) (*Function, hcl.Diagnostics, error
 		InlineObjectAsReturnType: inlineObjectAsReturnType,
 		Outputs:                  outputs,
 		ReturnType:               returnType,
+		ReturnTypePlain:          returnTypePlain,
 		DeprecationMessage:       spec.DeprecationMessage,
 		Language:                 language,
 		IsOverlay:                spec.IsOverlay,
