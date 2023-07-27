@@ -771,6 +771,7 @@ func TestConstructComponentConfigureProviderGo(t *testing.T) {
 
 	pulumiGoSDK := filepath.Join(pulumiRoot, "sdk")
 	componentSDK := filepath.Join(pulumiRoot, "pkg/codegen/testing/test/testdata/methods-return-plain-resource/go")
+	sdkPkg := "github.com/pulumi/pulumi/pkg/codegen/testing/test/testdata/methods-return-plain-resource/go"
 
 	localProvider := integration.LocalDependency{
 		Package: "metaprovider", Path: filepath.Join(testDir, "testcomponent-go"),
@@ -784,7 +785,7 @@ func TestConstructComponentConfigureProviderGo(t *testing.T) {
 		},
 		Dependencies: []string{
 			fmt.Sprintf("github.com/pulumi/pulumi/sdk/v3=%s", pulumiGoSDK),
-			fmt.Sprintf("methods-return-plain-resource=%s", componentSDK),
+			fmt.Sprintf("%s=%s", sdkPkg, componentSDK),
 		},
 		LocalProviders: []integration.LocalDependency{localProvider},
 		Quick:          true,
