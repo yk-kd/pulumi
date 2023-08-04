@@ -1171,8 +1171,10 @@ func (mod *modContext) genResource(res *schema.Resource) (string, error) {
 		returnType := returnTypeObject(method.Function)
 		if returnType != nil {
 			mod.collectImportsForResource(returnType.Properties, imports, false /*input*/, res)
-		} else if t, ok := method.Function.ReturnsPlainResource(); ok {
-			imports.addResource(mod, t)
+		} else if t, ok := method.Function.ReturnsPlainType(); ok {
+			if rt, ok := t.(*schema.ResourceType); ok {
+				imports.addResource(mod, rt)
+			}
 		}
 	}
 
@@ -1570,7 +1572,7 @@ func (mod *modContext) genMethodReturnType(w io.Writer, method *schema.Method) s
 	var properties []*schema.Property
 	var comment string
 
-	if t, ok := method.Function.ReturnsPlainResource(); ok {
+	if t, ok := method.Function.ReturnsPlainType(); ok {
 		comment = ""
 		properties = []*schema.Property{
 			{
@@ -1627,8 +1629,8 @@ func (mod *modContext) genMethods(w io.Writer, res *schema.Resource) {
 
 		// Either returnType is set or returnResourceType is set, not both.
 		var returnType *schema.ObjectType
-		returnResourceType, retPlainRes := fun.ReturnsPlainResource()
-		if !retPlainRes {
+		returnPlainType, doReturnPlainType := fun.ReturnsPlainType()
+		if !doReturnPlainType {
 			returnType = returnTypeObject(fun)
 		}
 
@@ -1636,14 +1638,14 @@ func (mod *modContext) genMethods(w io.Writer, res *schema.Resource) {
 
 		// If there is a return type, emit it.
 		var retTypeName, retTypeNameQualified, retTypeNameQualifiedOutput, methodRetType string
-		if returnType != nil || retPlainRes {
+		if returnType != nil || doReturnPlainType {
 			retTypeName = mod.genMethodReturnType(w, method)
 			retTypeNameQualified = fmt.Sprintf("%s.%s", resourceName(res), retTypeName)
 			retTypeNameQualifiedOutput = fmt.Sprintf("pulumi.Output['%s']", retTypeNameQualified)
 			if shouldLiftReturn {
 				methodRetType = fmt.Sprintf("pulumi.Output['%s']", mod.pyType(returnType.Properties[0].Type))
-			} else if retPlainRes {
-				methodRetType = mod.pyType(returnResourceType)
+			} else if doReturnPlainType {
+				methodRetType = mod.pyType(returnPlainType)
 			} else {
 				methodRetType = retTypeNameQualifiedOutput
 			}
@@ -1731,7 +1733,7 @@ func (mod *modContext) genMethods(w io.Writer, res *schema.Resource) {
 			typ = fmt.Sprintf(", typ=%s", retTypeNameQualified)
 		}
 
-		if retPlainRes {
+		if doReturnPlainType {
 			fmt.Fprintf(w, "        return pulumi.runtime.call('%s', __args__, res=__self__%s, plainResourceField='%s')\n",
 				fun.Token, typ, PyName("resource"))
 		} else if returnType == nil {
