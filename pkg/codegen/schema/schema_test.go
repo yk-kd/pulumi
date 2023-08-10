@@ -1053,7 +1053,8 @@ func TestFunctionToFunctionSpecTurnaround(t *testing.T) {
 			fspec: FunctionSpec{
 				ReturnType: &ReturnTypeSpec{
 					TypeSpec: &TypeSpec{
-						Type: "integer",
+						Type:  "integer",
+						Plain: true,
 					},
 				},
 			},
