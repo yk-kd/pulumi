@@ -1735,7 +1735,7 @@ func (mod *modContext) genMethods(w io.Writer, res *schema.Resource) {
 		}
 
 		if doReturnPlainType {
-			fmt.Fprintf(w, "        return pulumi.runtime.call('%s', __args__, res=__self__%s, plainResourceField='%s')\n",
+			fmt.Fprintf(w, "        return _utilities.call_plain('%s', __args__, res=__self__%s).%s\n",
 				fun.Token, typ, PyName("res"))
 		} else if returnType == nil {
 			fmt.Fprintf(w, "        pulumi.runtime.call('%s', __args__, res=__self__%s)\n", fun.Token, typ)
