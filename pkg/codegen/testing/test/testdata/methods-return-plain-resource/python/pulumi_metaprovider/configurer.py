@@ -102,7 +102,7 @@ class Configurer(pulumi.ComponentResource):
     def meaning_of_life(__self__) -> int:
         __args__ = dict()
         __args__['__self__'] = __self__
-        return pulumi.runtime.call('metaprovider:index:Configurer/meaningOfLife', __args__, res=__self__, typ=Configurer.MeaningOfLifeResult, plainResourceField='res')
+        return _utilities.call_plain('metaprovider:index:Configurer/meaningOfLife', __args__, res=__self__, typ=Configurer.MeaningOfLifeResult).res
 
     @pulumi.output_type
     class TlsProviderResult:
@@ -119,5 +119,5 @@ class Configurer(pulumi.ComponentResource):
     def tls_provider(__self__) -> pulumi_tls.Provider:
         __args__ = dict()
         __args__['__self__'] = __self__
-        return pulumi.runtime.call('metaprovider:index:Configurer/tlsProvider', __args__, res=__self__, typ=Configurer.TlsProviderResult, plainResourceField='res')
+        return _utilities.call_plain('metaprovider:index:Configurer/tlsProvider', __args__, res=__self__, typ=Configurer.TlsProviderResult).res
 
