@@ -2711,8 +2711,8 @@ func (pkg *pkgContext) genMethod(resourceName string, method *schema.Method, w i
 	}
 
 	if doReturnPlainType {
-		fmt.Fprintf(w, "\tctx.CallReturnPlainResource(%q, %s, %s{}, r, reflect.ValueOf(&o), &e)\n",
-			f.Token, inputsVar, outputsType)
+		fmt.Fprintf(w, "\tinternal.CallPlain(ctx, %q, %s, %s{}, r, %q, reflect.ValueOf(&o), &e)\n",
+			f.Token, inputsVar, outputsType, cgstrings.UppercaseFirst("res"))
 		fmt.Fprintf(w, "\treturn\n")
 	} else if objectReturnType == nil {
 		fmt.Fprintf(w, "\treturn err\n")
