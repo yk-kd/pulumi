@@ -46,7 +46,7 @@ func (ConfigurerArgs) ElementType() reflect.Type {
 }
 
 func (r *Configurer) MeaningOfLife(ctx *pulumi.Context) (o int, e error) {
-	ctx.CallReturnPlainResource("metaprovider:index:Configurer/meaningOfLife", nil, ConfigurerMeaningOfLifeResultOutput{}, r, reflect.ValueOf(&o), &e)
+	internal.CallPlain(ctx, "metaprovider:index:Configurer/meaningOfLife", nil, ConfigurerMeaningOfLifeResultOutput{}, r, "Res", reflect.ValueOf(&o), &e)
 	return
 }
 
@@ -65,7 +65,7 @@ func (o ConfigurerMeaningOfLifeResultOutput) Res() pulumi.IntOutput {
 }
 
 func (r *Configurer) TlsProvider(ctx *pulumi.Context) (o *tls.Provider, e error) {
-	ctx.CallReturnPlainResource("metaprovider:index:Configurer/tlsProvider", nil, ConfigurerTlsProviderResultOutput{}, r, reflect.ValueOf(&o), &e)
+	internal.CallPlain(ctx, "metaprovider:index:Configurer/tlsProvider", nil, ConfigurerTlsProviderResultOutput{}, r, "Res", reflect.ValueOf(&o), &e)
 	return
 }
 
