@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/pulumi/pulumi-tls/sdk/v4/go/tls"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -78,6 +79,17 @@ type TlsProviderResult struct {
 }
 
 func (c *Configurer) TlsProvider(ctx *pulumi.Context, args *TlsProviderArgs) (*TlsProviderResult, error) {
+	// The SDKs really do not support receving unknowns plain-resource returning methods, but if desired one can set
+	// an UNKNOWNS=true env var to see what happens if the provider was to actually send one, to test the error
+	// handling.
+	if ctx.DryRun() && os.Getenv("UNKNOWNS") == "true" {
+		return &TlsProviderResult{
+			Result: pulumi.UnsafeUnknownOutput(nil).ApplyT(func(x any) *tls.Provider {
+				panic("This should not be called")
+			}).(tls.ProviderOutput),
+		}, nil
+	}
+
 	return &TlsProviderResult{
 		Result: c.TlsProviderOutput,
 	}, nil
