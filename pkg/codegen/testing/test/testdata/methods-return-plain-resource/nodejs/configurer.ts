@@ -41,16 +41,14 @@ export class Configurer extends pulumi.ComponentResource {
     }
 
     meaningOfLife(): Promise<number> {
-        return pulumi.runtime.callAsync("metaprovider:index:Configurer/meaningOfLife", {
+        return utilities.callAsync("metaprovider:index:Configurer/meaningOfLife", {
             "__self__": this,
-        }, this, {plainResourceField: "res"});
-    }
+        }, this, {property: "res"});    }
 
     tlsProvider(): Promise<pulumiTls.Provider> {
-        return pulumi.runtime.callAsync("metaprovider:index:Configurer/tlsProvider", {
+        return utilities.callAsync("metaprovider:index:Configurer/tlsProvider", {
             "__self__": this,
-        }, this, {plainResourceField: "res"});
-    }
+        }, this, {property: "res"});    }
 }
 
 /**
