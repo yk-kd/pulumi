@@ -1021,7 +1021,7 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) (resourceFil
 		}
 
 		if doReturnPlainType {
-			fmt.Fprintf(w, "        %spulumi.runtime.callAsync(\"%s\", {\n", ret, fun.Token)
+			fmt.Fprintf(w, "        %sutilities.callAsync(\"%s\", {\n", ret, fun.Token)
 		} else {
 			fmt.Fprintf(w, "        %spulumi.runtime.call(\"%s\", {\n", ret, fun.Token)
 		}
@@ -1039,11 +1039,10 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) (resourceFil
 		fmt.Fprintf(w, "        }, this")
 
 		if doReturnPlainType {
-			prop := camel("res")
-			fmt.Fprintf(w, ", {plainResourceField: %q}", prop)
+			fmt.Fprintf(w, `, {property: "res"});`)
+		} else {
+			fmt.Fprintf(w, ");\n")
 		}
-
-		fmt.Fprintf(w, ");\n")
 
 		if liftReturn {
 			fmt.Fprintf(w, "        return result.%s;\n", camel(objectReturnType.Properties[0].Name))
