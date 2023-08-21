@@ -2773,7 +2773,7 @@ func GeneratePackage(tool string, pkg *schema.Package, extraFiles map[string][]b
 	return files, nil
 }
 
-//go:embed utilities.js
+//go:embed utilities.ts
 var utilitiesFile string
 
 func (mod *modContext) genUtilitiesFile(w io.Writer) error {
