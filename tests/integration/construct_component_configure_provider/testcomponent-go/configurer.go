@@ -106,3 +106,25 @@ func (c *Configurer) MeaningOfLife(ctx *pulumi.Context, args *MeaningOfLifeArgs)
 		Result: pulumi.Int(42).ToIntOutputWithContext(ctx.Context()),
 	}, nil
 }
+
+type ObjectMixArgs struct{}
+
+type ObjectMixResult struct {
+	Provider      tls.ProviderOutput `pulumi:"provider"`
+	MeaningOfLife pulumi.IntOutput   `pulumi:"meaningOfLife"`
+}
+
+func (c *Configurer) ObjectMix(ctx *pulumi.Context, args *ObjectMixArgs) (*ObjectMixResult, error) {
+	p, err := c.TlsProvider(ctx, &TlsProviderArgs{})
+	if err != nil {
+		return nil, err
+	}
+	m, err := c.MeaningOfLife(ctx, &MeaningOfLifeArgs{})
+	if err != nil {
+		return nil, err
+	}
+	return &ObjectMixResult{
+		Provider:      p.Result,
+		MeaningOfLife: m.Result,
+	}, err
+}

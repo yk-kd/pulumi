@@ -35,6 +35,7 @@ const (
 	configurerResourceToken  = "metaprovider:index:Configurer"
 	tlsProviderMethodToken   = "metaprovider:index:Configurer/tlsProvider"
 	meaningOfLifeMethodToken = "metaprovider:index:Configurer/meaningOfLife"
+	objectMixMethodToken     = "metaprovider:index:Configurer/objectMix"
 )
 
 type module struct {
@@ -79,6 +80,18 @@ func call(ctx *pulumi.Context, tok string, args pulumiprovider.CallArgs) (*pulum
 		}
 		component := res.(*Configurer)
 		result, err := component.MeaningOfLife(ctx, methodArgs)
+		if err != nil {
+			return nil, fmt.Errorf("calling method: %w", err)
+		}
+		return pulumiprovider.NewCallResult(result)
+	case objectMixMethodToken:
+		methodArgs := &ObjectMixArgs{}
+		res, err := args.CopyTo(methodArgs)
+		if err != nil {
+			return nil, fmt.Errorf("setting args: %w", err)
+		}
+		component := res.(*Configurer)
+		result, err := component.ObjectMix(ctx, methodArgs)
 		if err != nil {
 			return nil, fmt.Errorf("calling method: %w", err)
 		}

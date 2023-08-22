@@ -11,7 +11,8 @@
       },
       "methods": {
         "tlsProvider": "metaprovider:index:Configurer/tlsProvider",
-        "meaningOfLife":   "metaprovider:index:Configurer/meaningOfLife"
+        "meaningOfLife": "metaprovider:index:Configurer/meaningOfLife",
+        "objectMix": "metaprovider:index:Configurer/objectMix"
       }
     }
   },
@@ -25,8 +26,8 @@
         }
       },
       "outputs": {
-         "$ref": "/tls/v4.10.0/schema.json#/provider",
-         "plain": true
+        "$ref": "/tls/v4.10.0/schema.json#/provider",
+        "plain": true
       }
     },
     "metaprovider:index:Configurer/meaningOfLife": {
@@ -38,21 +39,42 @@
         }
       },
       "outputs": {
-         "type": "integer",
-         "plain": true
+        "type": "integer",
+        "plain": true
+      }
+    },
+    "metaprovider:index:Configurer/objectMix": {
+      "inputs": {
+        "properties": {
+          "__self__": {
+            "$ref": "#/resources/metaprovider:index:Configurer"
+          }
+        }
+      },
+      "outputs": {
+        "type": "object",
+        "plain": true,
+        "properties": {
+          "provider": {
+            "$ref": "/tls/v4.10.0/schema.json#/provider"
+          },
+          "meaningOfLife": {
+            "type": "integer"
+          }
+        }
       }
     }
   },
   "language": {
     "nodejs": {
-        "dependencies": {
-            "@pulumi/tls": "^4.10"
-        },
-        "respectSchemaVersion": true
+      "dependencies": {
+        "@pulumi/tls": "^4.10"
+      },
+      "respectSchemaVersion": true
     },
     "go": {
-        "modulePath": "github.com/pulumi/pulumi/pkg/codegen/testing/test/testdata/methods-return-plain-resource/go",
-        "importBasePath": "github.com/pulumi/pulumi/pkg/codegen/testing/test/testdata/methods-return-plain-resource/go/metaprovider"
+      "modulePath": "github.com/pulumi/pulumi/pkg/codegen/testing/test/testdata/methods-return-plain-resource/go",
+      "importBasePath": "github.com/pulumi/pulumi/pkg/codegen/testing/test/testdata/methods-return-plain-resource/go/metaprovider"
     }
   }
 }

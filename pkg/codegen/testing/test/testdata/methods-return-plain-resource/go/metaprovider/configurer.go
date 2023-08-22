@@ -64,6 +64,30 @@ func (o ConfigurerMeaningOfLifeResultOutput) Res() pulumi.IntOutput {
 	return o.ApplyT(func(v ConfigurerMeaningOfLifeResult) int { return v.Res }).(pulumi.IntOutput)
 }
 
+func (r *Configurer) ObjectMix(ctx *pulumi.Context) (o ConfigurerObjectMixResult, e error) {
+	internal.CallPlain(ctx, "metaprovider:index:Configurer/objectMix", nil, ConfigurerObjectMixResultOutput{}, r, "", reflect.ValueOf(&o), &e)
+	return
+}
+
+type ConfigurerObjectMixResult struct {
+	MeaningOfLife *int          `pulumi:"meaningOfLife"`
+	Provider      *tls.Provider `pulumi:"provider"`
+}
+
+type ConfigurerObjectMixResultOutput struct{ *pulumi.OutputState }
+
+func (ConfigurerObjectMixResultOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*ConfigurerObjectMixResult)(nil)).Elem()
+}
+
+func (o ConfigurerObjectMixResultOutput) MeaningOfLife() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v ConfigurerObjectMixResult) *int { return v.MeaningOfLife }).(pulumi.IntPtrOutput)
+}
+
+func (o ConfigurerObjectMixResultOutput) Provider() tls.ProviderOutput {
+	return o.ApplyT(func(v ConfigurerObjectMixResult) *tls.Provider { return v.Provider }).(tls.ProviderOutput)
+}
+
 func (r *Configurer) TlsProvider(ctx *pulumi.Context) (o *tls.Provider, e error) {
 	internal.CallPlain(ctx, "metaprovider:index:Configurer/tlsProvider", nil, ConfigurerTlsProviderResultOutput{}, r, "Res", reflect.ValueOf(&o), &e)
 	return
@@ -119,4 +143,5 @@ func (o ConfigurerOutput) ToConfigurerOutputWithContext(ctx context.Context) Con
 func init() {
 	pulumi.RegisterInputType(reflect.TypeOf((*ConfigurerInput)(nil)).Elem(), &Configurer{})
 	pulumi.RegisterOutputType(ConfigurerOutput{})
+	pulumi.RegisterOutputType(ConfigurerObjectMixResultOutput{})
 }

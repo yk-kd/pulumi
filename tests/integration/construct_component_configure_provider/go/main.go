@@ -52,8 +52,26 @@ func main() {
 			return err
 		}
 
+		mix, err := configurer.ObjectMix(ctx)
+		if err != nil {
+			return err
+		}
+
 		ctx.Export("meaningOfLife", pulumi.Int(n))
 		ctx.Export("keyAlgo", key.Algorithm)
+		if mix.MeaningOfLife != nil {
+			ctx.Export("meaningOfLife2", pulumi.Int(*mix.MeaningOfLife))
+		}
+
+		key2, err := tls.NewPrivateKey(ctx, "my-private-key-2", &tls.PrivateKeyArgs{
+			Algorithm:  pulumi.String("ECDSA"),
+			EcdsaCurve: pulumi.String("P384"),
+		}, pulumi.Provider(mix.Provider))
+		if err != nil {
+			return err
+		}
+
+		ctx.Export("keyAlgo2", key2.Algorithm)
 		return nil
 	})
 }

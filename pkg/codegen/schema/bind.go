@@ -1575,6 +1575,7 @@ func (t *types) bindFunctionDef(token string) (*Function, hcl.Diagnostics, error
 			returnType = outs
 			outputs = outs
 			inlineObjectAsReturnType = true
+			returnTypePlain = spec.ReturnType.ObjectTypeSpecIsPlain
 		} else if spec.ReturnType.TypeSpec != nil {
 			out, outDiags, err := t.bindTypeSpec(path+"/outputs", *spec.ReturnType.TypeSpec, false)
 			diags = diags.Extend(outDiags)

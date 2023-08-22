@@ -1171,6 +1171,9 @@ func (pkg *Package) marshalFunction(f *Function) (FunctionSpec, error) {
 				return FunctionSpec{}, fmt.Errorf("marshaling object spec: %w", err)
 			}
 			returnType.ObjectTypeSpec = &ret.ObjectTypeSpec
+			if f.ReturnTypePlain {
+				returnType.ObjectTypeSpecIsPlain = true
+			}
 		} else {
 			typeSpec := pkg.marshalType(f.ReturnType, true)
 			returnType.TypeSpec = &typeSpec
@@ -1550,10 +1553,13 @@ type ResourceSpec struct {
 	Methods map[string]string `json:"methods,omitempty" yaml:"methods,omitempty"`
 }
 
-// ReturnTypeSpec is either ObjectTypeSpec or TypeSpec
+// ReturnTypeSpec is either ObjectTypeSpec or TypeSpec. In the former case, it can also be marked
+// with ObjectTypeSpecIsPlain: true indicating that the generated code should not wrap in the result
+// in an Output but return it directly.
 type ReturnTypeSpec struct {
-	ObjectTypeSpec *ObjectTypeSpec
-	TypeSpec       *TypeSpec
+	ObjectTypeSpec        *ObjectTypeSpec
+	ObjectTypeSpecIsPlain bool
+	TypeSpec              *TypeSpec
 }
 
 // Decoder is an alias for a function that takes (in []byte, out interface{}) and potentially returns an error
@@ -1573,6 +1579,19 @@ func (returnTypeSpec *ReturnTypeSpec) UnmarshalReturnTypeSpec(data []byte, decod
 	var objectSpec *ObjectTypeSpec
 	var typeSpec *TypeSpec
 	if _, hasProperties := objectMap["properties"]; hasProperties {
+		// Custom unmarshal for "plain": true to avoid passing to ObjectTypeSpec unmarshal
+		// which expects "plain" to be a list.
+		if plainValue, gotPlain := objectMap["plain"]; gotPlain {
+			if pv, ok := plainValue.(bool); ok && pv {
+				delete(objectMap, "plain")
+				var err error
+				data, err = json.Marshal(objectMap)
+				if err != nil {
+					return err
+				}
+				returnTypeSpec.ObjectTypeSpecIsPlain = true
+			}
+		}
 		if err := decode(data, &objectSpec); err != nil {
 			return err
 		}

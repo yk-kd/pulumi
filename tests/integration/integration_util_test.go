@@ -583,6 +583,9 @@ func testConstructComponentConfigureProviderCommonOptions() integration.ProgramT
 		ExtraRuntimeValidation: func(t *testing.T, stackInfo integration.RuntimeValidationStackInfo) {
 			assert.Contains(t, stackInfo.Outputs, "keyAlgo")
 			assert.Equal(t, "ECDSA", stackInfo.Outputs["keyAlgo"])
+			assert.Contains(t, stackInfo.Outputs, "keyAlgo2")
+			assert.Equal(t, "ECDSA", stackInfo.Outputs["keyAlgo2"])
+
 			var providerURNID string
 			for _, r := range stackInfo.Deployment.Resources {
 				if strings.Contains(string(r.URN), "PrivateKey") {
@@ -604,6 +607,8 @@ func testConstructComponentConfigureProviderCommonOptions() integration.ProgramT
 
 			require.Equalf(t, float64(42), stackInfo.Outputs["meaningOfLife"],
 				"Expectead meaningOfLife output to be set to the integer 42")
+			require.Equalf(t, float64(42), stackInfo.Outputs["meaningOfLife2"],
+				"Expectead meaningOfLife2 output to be set to the integer 42")
 		},
 	}
 }
