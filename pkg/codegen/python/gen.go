@@ -1172,10 +1172,12 @@ func (mod *modContext) genResource(res *schema.Resource) (string, error) {
 		returnType := returnTypeObject(method.Function)
 		if returnType != nil {
 			mod.collectImportsForResource(returnType.Properties, imports, false /*input*/, res)
-		} else if t, ok := method.Function.ReturnsPlainType(); ok {
-			if rt, ok := t.(*schema.ResourceType); ok {
-				imports.addResource(mod, rt)
-			}
+		} else if method.Function.ReturnTypePlain {
+			mod.collectImportsForResource([]*schema.Property{{
+				Name:  "res",
+				Type:  method.Function.ReturnType,
+				Plain: true,
+			}}, imports, false /*input*/, res)
 		}
 	}
 
@@ -1573,19 +1575,18 @@ func (mod *modContext) genMethodReturnType(w io.Writer, method *schema.Method) s
 	var properties []*schema.Property
 	var comment string
 
-	if t, ok := method.Function.ReturnsPlainType(); ok {
+	if obj := returnTypeObject(method.Function); obj != nil {
+		properties = obj.Properties
+		comment = obj.Comment
+	} else if method.Function.ReturnTypePlain {
 		comment = ""
 		properties = []*schema.Property{
 			{
 				Name:  "res",
-				Type:  t,
+				Type:  method.Function.ReturnType,
 				Plain: true,
 			},
 		}
-	} else {
-		obj := returnTypeObject(method.Function)
-		properties = obj.Properties
-		comment = obj.Comment
 	}
 
 	name := pyClassName(title(method.Name)) + "Result"
@@ -1628,25 +1629,23 @@ func (mod *modContext) genMethods(w io.Writer, res *schema.Resource) {
 		methodName := PyName(method.Name)
 		fun := method.Function
 
-		// Either returnType is set or returnResourceType is set, not both.
-		var returnType *schema.ObjectType
-		returnPlainType, doReturnPlainType := fun.ReturnsPlainType()
-		if !doReturnPlainType {
-			returnType = returnTypeObject(fun)
-		}
-
+		returnType := returnTypeObject(fun)
 		shouldLiftReturn := mod.liftSingleValueMethodReturns && returnType != nil && len(returnType.Properties) == 1
 
 		// If there is a return type, emit it.
 		var retTypeName, retTypeNameQualified, retTypeNameQualifiedOutput, methodRetType string
-		if returnType != nil || doReturnPlainType {
+		if returnType != nil || fun.ReturnTypePlain {
 			retTypeName = mod.genMethodReturnType(w, method)
 			retTypeNameQualified = fmt.Sprintf("%s.%s", resourceName(res), retTypeName)
 			retTypeNameQualifiedOutput = fmt.Sprintf("pulumi.Output['%s']", retTypeNameQualified)
 			if shouldLiftReturn {
 				methodRetType = fmt.Sprintf("pulumi.Output['%s']", mod.pyType(returnType.Properties[0].Type))
-			} else if doReturnPlainType {
-				methodRetType = mod.pyType(returnPlainType)
+			} else if fun.ReturnTypePlain {
+				if returnType != nil {
+					methodRetType = retTypeName
+				} else {
+					methodRetType = mod.pyType(fun.ReturnType)
+				}
 			} else {
 				methodRetType = retTypeNameQualifiedOutput
 			}
@@ -1734,9 +1733,14 @@ func (mod *modContext) genMethods(w io.Writer, res *schema.Resource) {
 			typ = fmt.Sprintf(", typ=%s", retTypeNameQualified)
 		}
 
-		if doReturnPlainType {
-			fmt.Fprintf(w, "        return _utilities.call_plain('%s', __args__, res=__self__%s).%s\n",
-				fun.Token, typ, PyName("res"))
+		if fun.ReturnTypePlain {
+			property := ""
+			// For non-object singleton return types, unwrap the magic property "res".
+			if returnType == nil {
+				property = "." + PyName("res")
+			}
+			fmt.Fprintf(w, "        return _utilities.call_plain('%s', __args__, res=__self__%s)%s\n",
+				fun.Token, typ, property)
 		} else if returnType == nil {
 			fmt.Fprintf(w, "        pulumi.runtime.call('%s', __args__, res=__self__%s)\n", fun.Token, typ)
 		} else if shouldLiftReturn {

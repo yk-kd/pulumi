@@ -18,3 +18,12 @@ key = pulumi_tls.PrivateKey("my-private-key",
 
 pulumi.export("keyAlgo", key.algorithm)
 pulumi.export("meaningOfLife", configurer.meaning_of_life() + 1 - 1)
+
+mix = configurer.object_mix()
+key2 = pulumi_tls.PrivateKey("my-private-key-2",
+                             algorithm="ECDSA",
+                             ecdsa_curve="P384",
+                             opts=pulumi.ResourceOptions(provider=mix.provider))
+
+pulumi.export("keyAlgo2", key2.algorithm)
+pulumi.export("meaningOfLife2", mix.meaning_of_life + 1 - 1)

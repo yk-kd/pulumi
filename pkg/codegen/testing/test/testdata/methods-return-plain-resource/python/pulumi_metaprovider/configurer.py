@@ -105,6 +105,31 @@ class Configurer(pulumi.ComponentResource):
         return _utilities.call_plain('metaprovider:index:Configurer/meaningOfLife', __args__, res=__self__, typ=Configurer.MeaningOfLifeResult).res
 
     @pulumi.output_type
+    class ObjectMixResult:
+        def __init__(__self__, meaning_of_life=None, provider=None):
+            if meaning_of_life and not isinstance(meaning_of_life, int):
+                raise TypeError("Expected argument 'meaning_of_life' to be a int")
+            pulumi.set(__self__, "meaning_of_life", meaning_of_life)
+            if provider and not isinstance(provider, pulumi_tls.Provider):
+                raise TypeError("Expected argument 'provider' to be a pulumi_tls.Provider")
+            pulumi.set(__self__, "provider", provider)
+
+        @property
+        @pulumi.getter(name="meaningOfLife")
+        def meaning_of_life(self) -> Optional[int]:
+            return pulumi.get(self, "meaning_of_life")
+
+        @property
+        @pulumi.getter
+        def provider(self) -> Optional['pulumi_tls.Provider']:
+            return pulumi.get(self, "provider")
+
+    def object_mix(__self__) -> ObjectMixResult:
+        __args__ = dict()
+        __args__['__self__'] = __self__
+        return _utilities.call_plain('metaprovider:index:Configurer/objectMix', __args__, res=__self__, typ=Configurer.ObjectMixResult)
+
+    @pulumi.output_type
     class TlsProviderResult:
         def __init__(__self__, res=None):
             if res and not isinstance(res, pulumi_tls.Provider):
