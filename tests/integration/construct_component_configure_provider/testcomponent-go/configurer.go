@@ -74,25 +74,17 @@ func NewConfigurer(
 
 type TlsProviderArgs struct{}
 
-type TlsProviderResult struct {
-	Result tls.ProviderOutput `pulumi:"res"`
-}
-
-func (c *Configurer) TlsProvider(ctx *pulumi.Context, args *TlsProviderArgs) (*TlsProviderResult, error) {
+func (c *Configurer) TlsProvider(ctx *pulumi.Context, args *TlsProviderArgs) (tls.ProviderOutput, error) {
 	// The SDKs really do not support receving unknowns plain-resource returning methods, but if desired one can set
 	// an UNKNOWNS=true env var to see what happens if the provider was to actually send one, to test the error
 	// handling.
 	if ctx.DryRun() && os.Getenv("UNKNOWNS") == "true" {
-		return &TlsProviderResult{
-			Result: pulumi.UnsafeUnknownOutput(nil).ApplyT(func(x any) *tls.Provider {
-				panic("This should not be called")
-			}).(tls.ProviderOutput),
-		}, nil
+		return pulumi.UnsafeUnknownOutput(nil).ApplyT(func(x any) *tls.Provider {
+			panic("This should not be called")
+		}).(tls.ProviderOutput), nil
 	}
 
-	return &TlsProviderResult{
-		Result: c.TlsProviderOutput,
-	}, nil
+	return c.TlsProviderOutput, nil
 }
 
 type MeaningOfLifeArgs struct{}
@@ -101,10 +93,8 @@ type MeaningOfLifeResult struct {
 	Result pulumi.IntOutput `pulumi:"res"`
 }
 
-func (c *Configurer) MeaningOfLife(ctx *pulumi.Context, args *MeaningOfLifeArgs) (*MeaningOfLifeResult, error) {
-	return &MeaningOfLifeResult{
-		Result: pulumi.Int(42).ToIntOutputWithContext(ctx.Context()),
-	}, nil
+func (c *Configurer) MeaningOfLife(ctx *pulumi.Context, args *MeaningOfLifeArgs) (pulumi.IntOutput, error) {
+	return pulumi.Int(42).ToIntOutputWithContext(ctx.Context()), nil
 }
 
 type ObjectMixArgs struct{}
@@ -124,7 +114,7 @@ func (c *Configurer) ObjectMix(ctx *pulumi.Context, args *ObjectMixArgs) (*Objec
 		return nil, err
 	}
 	return &ObjectMixResult{
-		Provider:      p.Result,
-		MeaningOfLife: m.Result,
+		Provider:      p,
+		MeaningOfLife: m,
 	}, err
 }

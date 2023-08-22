@@ -71,7 +71,7 @@ func call(ctx *pulumi.Context, tok string, args pulumiprovider.CallArgs) (*pulum
 		if err != nil {
 			return nil, fmt.Errorf("calling method: %w", err)
 		}
-		return pulumiprovider.NewCallResult(result)
+		return pulumiprovider.NewSingletonCallResult(result)
 	case meaningOfLifeMethodToken:
 		methodArgs := &MeaningOfLifeArgs{}
 		res, err := args.CopyTo(methodArgs)
@@ -83,7 +83,7 @@ func call(ctx *pulumi.Context, tok string, args pulumiprovider.CallArgs) (*pulum
 		if err != nil {
 			return nil, fmt.Errorf("calling method: %w", err)
 		}
-		return pulumiprovider.NewCallResult(result)
+		return pulumiprovider.NewSingletonCallResult(result)
 	case objectMixMethodToken:
 		methodArgs := &ObjectMixArgs{}
 		res, err := args.CopyTo(methodArgs)
