@@ -18,14 +18,27 @@ export = async () => {
   const configurer = new metaprovider.Configurer("configurer", {
     tlsProxy: helperPrivateKey.publicKeyPem.apply(_ => proxy) // apply trick makes it unknown at preview
   });
+
   const key = new tls.PrivateKey("my-private-key", {
     algorithm: "ECDSA",
     ecdsaCurve: "P384",
   }, {
     provider: await configurer.tlsProvider()
   });
+
+  const mix = await configurer.objectMix();
+
+  const key2 = new tls.PrivateKey("my-private-key-e", {
+    algorithm: "ECDSA",
+    ecdsaCurve: "P384",
+  }, {
+    provider: mix.provider
+  });
+
   return {
     keyAlgo: key.algorithm,
-    meaningOfLife: (await configurer.meaningOfLife() + 1 - 1)
-  }
+    keyAlgo2: key2.algorithm,
+    meaningOfLife: (await configurer.meaningOfLife() + 1 - 1),
+    meaningOfLife2: (await (mix.meaningOfLife||0) + 1 - 1)
+  };
 };

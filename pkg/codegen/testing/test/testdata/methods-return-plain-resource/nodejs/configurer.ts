@@ -45,6 +45,11 @@ export class Configurer extends pulumi.ComponentResource {
             "__self__": this,
         }, this, {property: "res"});    }
 
+    objectMix(): Promise<Configurer.ObjectMixResult> {
+        return utilities.callAsync("metaprovider:index:Configurer/objectMix", {
+            "__self__": this,
+        }, this, {});    }
+
     tlsProvider(): Promise<pulumiTls.Provider> {
         return utilities.callAsync("metaprovider:index:Configurer/tlsProvider", {
             "__self__": this,
@@ -60,17 +65,11 @@ export interface ConfigurerArgs {
 
 export namespace Configurer {
     /**
-     * The results of the Configurer.meaningOfLife method.
+     * The results of the Configurer.objectMix method.
      */
-    export interface MeaningOfLifeResult {
-        readonly resource: number;
-    }
-
-    /**
-     * The results of the Configurer.tlsProvider method.
-     */
-    export interface TlsProviderResult {
-        readonly resource: pulumiTls.Provider;
+    export interface ObjectMixResult {
+        readonly meaningOfLife?: number;
+        readonly provider?: pulumiTls.Provider;
     }
 
 }

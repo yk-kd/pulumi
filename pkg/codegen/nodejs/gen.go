@@ -944,12 +944,11 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) (resourceFil
 		methodName := camel(method.Name)
 		fun := method.Function
 
-		returnPlainType, doReturnPlainType := fun.ReturnsPlainType()
 		var objectReturnType *schema.ObjectType
 		if fun.ReturnType != nil {
 			if objectType, ok := fun.ReturnType.(*schema.ObjectType); ok && objectType != nil {
 				objectReturnType = objectType
-			} else if !doReturnPlainType {
+			} else if !fun.ReturnTypePlain {
 				// Currently the code only knows how to generate code for methods returning an
 				// ObjectType or methods returning a plain resource All other methods are simply
 				// skipped; bail here.
@@ -991,8 +990,13 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) (resourceFil
 		var retty string
 		if fun.ReturnType == nil {
 			retty = "void"
-		} else if doReturnPlainType {
-			innerType := mod.typeString(returnPlainType, false, nil)
+		} else if fun.ReturnTypePlain {
+			var innerType string
+			if objectReturnType == nil {
+				innerType = mod.typeString(fun.ReturnType, false, nil)
+			} else {
+				innerType = fmt.Sprintf("%s.%sResult", name, title(method.Name))
+			}
 			retty = fmt.Sprintf("Promise<%s>", innerType)
 		} else if liftReturn {
 			retty = fmt.Sprintf("pulumi.Output<%s>", mod.typeString(objectReturnType.Properties[0].Type, false, nil))
@@ -1020,7 +1024,7 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) (resourceFil
 			}
 		}
 
-		if doReturnPlainType {
+		if fun.ReturnTypePlain {
 			fmt.Fprintf(w, "        %sutilities.callAsync(\"%s\", {\n", ret, fun.Token)
 		} else {
 			fmt.Fprintf(w, "        %spulumi.runtime.call(\"%s\", {\n", ret, fun.Token)
@@ -1038,8 +1042,13 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) (resourceFil
 		}
 		fmt.Fprintf(w, "        }, this")
 
-		if doReturnPlainType {
-			fmt.Fprintf(w, `, {property: "res"});`)
+		if fun.ReturnTypePlain {
+			// Unwrap magic property "res" for methods that return a plain non-object-type.
+			if objectReturnType == nil {
+				fmt.Fprintf(w, `, {property: "res"});`)
+			} else {
+				fmt.Fprintf(w, `, {});`)
+			}
 		} else {
 			fmt.Fprintf(w, ");\n")
 		}
@@ -1116,18 +1125,7 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) (resourceFil
 					return err
 				}
 			}
-			if resTy, ok := fun.ReturnsPlainType(); ok {
-				props := []*schema.Property{
-					{
-						Name:  "resource",
-						Plain: true,
-						Type:  resTy,
-					},
-				}
-				if err := genReturnType(props); err != nil {
-					return err
-				}
-			}
+			// For non-object types with fun.ReturnTypePlain return type is not needed.
 		}
 		return nil
 	}
@@ -1602,9 +1600,10 @@ func (mod *modContext) getImportsForResource(member interface{}, externalImports
 					for _, p := range objectType.Properties {
 						needsTypes = mod.getTypeImportsForResource(p.Type, false, externalImports, imports, seen, res) || needsTypes
 					}
-				}
-				if resTy, ok := method.Function.ReturnsPlainType(); ok {
-					needsTypes = mod.getTypeImportsForResource(resTy, false, externalImports, imports, seen, res) || needsTypes
+				} else if method.Function.ReturnTypePlain {
+					needsTypes = mod.getTypeImportsForResource(
+						method.Function.ReturnType, false, externalImports,
+						imports, seen, res) || needsTypes
 				}
 			}
 		}

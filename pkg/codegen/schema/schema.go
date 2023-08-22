@@ -552,14 +552,6 @@ type Function struct {
 	IsOverlay bool
 }
 
-// Detects if a function returns a single plain value and that is not wrapped in an Output.
-func (fun *Function) ReturnsPlainType() (Type, bool) {
-	if fun.ReturnType != nil && fun.ReturnTypePlain {
-		return fun.ReturnType, true
-	}
-	return nil, false
-}
-
 // NeedsOutputVersion determines if codegen should emit a ${fn}Output version that
 // automatically accepts Inputs and returns ReturnType.
 func (fun *Function) NeedsOutputVersion() bool {
