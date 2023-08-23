@@ -391,6 +391,184 @@ All [input](#inputs) properties are implicitly available as output properties. A
 
 
 
+### ObjectMix Method {#method_ObjectMix}
+
+
+
+#### Using ObjectMix
+
+<div>
+<pulumi-chooser type="language" options="typescript,python,go,csharp,java,yaml"></pulumi-chooser>
+</div>
+
+
+<div>
+<pulumi-choosable type="language" values="javascript,typescript">
+<div class="highlight"><pre class="chroma"><code class="language-typescript" data-lang="typescript">objectMix<span class="p">(</span><span class="p">): Output&lt;<span class="nx"><a href="#method_ObjectMix_result">Configurer.ObjectMixResult</a></span>&gt;</span></code></pre></div>
+</pulumi-choosable>
+</div>
+
+
+<div>
+<pulumi-choosable type="language" values="python">
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def </span>object_mix(</span><span class="p">) -&gt;</span> Output[<span class="nx"><a href="#method_ObjectMix_result">Configurer.Object_mixResult</a></span>]</code></pre></div>
+</pulumi-choosable>
+</div>
+
+
+<div>
+<pulumi-choosable type="language" values="go">
+<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="k">func</span> <span class="p">(r *Configurer)</span> ObjectMix<span class="p">(</span><span class="p">) (<span class="nx"><a href="#method_ObjectMix_result">ConfigurerObjectMixResultOutput</a></span>, error)</span></code></pre></div>
+</pulumi-choosable>
+</div>
+
+
+<div>
+<pulumi-choosable type="language" values="csharp">
+<div class="highlight"><pre class="chroma"><code class="language-csharp" data-lang="csharp"><span class="k">public </span>Output&lt;<span class="nx"><a href="#method_ObjectMix_result">Configurer.ObjectMixResult</a></span>&gt; <span class="nx">ObjectMix</span><span class="p">()</span></code></pre></div>
+</pulumi-choosable>
+</div>
+
+
+
+
+#### ObjectMix Result {#method_ObjectMix_result}
+
+
+<div>
+<pulumi-choosable type="language" values="csharp">
+<dl class="resources-properties"><dt class="property-"
+            title="">
+        <span id="objectMix_result_meaningoflife_csharp">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_meaningoflife_csharp" style="color: inherit; text-decoration: inherit;">Meaning<wbr>Of<wbr>Life</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">int</span>
+    </dt>
+    <dd></dd><dt class="property-"
+            title="">
+        <span id="objectMix_result_provider_csharp">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_provider_csharp" style="color: inherit; text-decoration: inherit;">Provider</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">Pulumi.<wbr>Tls.<wbr>Provider</span>
+    </dt>
+    <dd></dd></dl>
+</pulumi-choosable>
+</div>
+
+<div>
+<pulumi-choosable type="language" values="go">
+<dl class="resources-properties"><dt class="property-"
+            title="">
+        <span id="objectMix_result_meaningoflife_go">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_meaningoflife_go" style="color: inherit; text-decoration: inherit;">Meaning<wbr>Of<wbr>Life</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">int</span>
+    </dt>
+    <dd></dd><dt class="property-"
+            title="">
+        <span id="objectMix_result_provider_go">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_provider_go" style="color: inherit; text-decoration: inherit;">Provider</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">Provider</span>
+    </dt>
+    <dd></dd></dl>
+</pulumi-choosable>
+</div>
+
+<div>
+<pulumi-choosable type="language" values="java">
+<dl class="resources-properties"><dt class="property-"
+            title="">
+        <span id="objectMix_result_meaningoflife_java">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_meaningoflife_java" style="color: inherit; text-decoration: inherit;">meaning<wbr>Of<wbr>Life</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">Integer</span>
+    </dt>
+    <dd></dd><dt class="property-"
+            title="">
+        <span id="objectMix_result_provider_java">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_provider_java" style="color: inherit; text-decoration: inherit;">provider</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">Provider</span>
+    </dt>
+    <dd></dd></dl>
+</pulumi-choosable>
+</div>
+
+<div>
+<pulumi-choosable type="language" values="javascript,typescript">
+<dl class="resources-properties"><dt class="property-"
+            title="">
+        <span id="objectMix_result_meaningoflife_nodejs">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_meaningoflife_nodejs" style="color: inherit; text-decoration: inherit;">meaning<wbr>Of<wbr>Life</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">number</span>
+    </dt>
+    <dd></dd><dt class="property-"
+            title="">
+        <span id="objectMix_result_provider_nodejs">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_provider_nodejs" style="color: inherit; text-decoration: inherit;">provider</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">pulumi<wbr>Tls<wbr>Provider</span>
+    </dt>
+    <dd></dd></dl>
+</pulumi-choosable>
+</div>
+
+<div>
+<pulumi-choosable type="language" values="python">
+<dl class="resources-properties"><dt class="property-"
+            title="">
+        <span id="objectMix_result_meaning_of_life_python">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_meaning_of_life_python" style="color: inherit; text-decoration: inherit;">meaning_<wbr>of_<wbr>life</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">int</span>
+    </dt>
+    <dd></dd><dt class="property-"
+            title="">
+        <span id="objectMix_result_provider_python">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_provider_python" style="color: inherit; text-decoration: inherit;">provider</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">Provider</span>
+    </dt>
+    <dd></dd></dl>
+</pulumi-choosable>
+</div>
+
+<div>
+<pulumi-choosable type="language" values="yaml">
+<dl class="resources-properties"><dt class="property-"
+            title="">
+        <span id="objectMix_result_meaningoflife_yaml">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_meaningoflife_yaml" style="color: inherit; text-decoration: inherit;">meaning<wbr>Of<wbr>Life</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">Number</span>
+    </dt>
+    <dd></dd><dt class="property-"
+            title="">
+        <span id="objectMix_result_provider_yaml">
+<a data-swiftype-name="resource-property" data-swiftype-type="text" href="#objectMix_result_provider_yaml" style="color: inherit; text-decoration: inherit;">provider</a>
+</span>
+        <span class="property-indicator"></span>
+        <span class="property-type">pulumi:providers:tls</span>
+    </dt>
+    <dd></dd></dl>
+</pulumi-choosable>
+</div>
+
+
+
 ### TlsProvider Method {#method_TlsProvider}
 
 
