@@ -1558,6 +1558,8 @@ type ReturnTypeSpec struct {
 // it is used to abstract json.Unmarshal and yaml.Unmarshal which satisfy this function signature
 type Decoder func([]byte, interface{}) error
 
+type Encoder func(interface{}) ([]byte, error)
+
 func (returnTypeSpec *ReturnTypeSpec) UnmarshalReturnTypeSpec(data []byte, decode Decoder) error {
 	var objectMap map[string]interface{}
 	if err := decode(data, &objectMap); err != nil {
@@ -1596,6 +1598,33 @@ func (returnTypeSpec *ReturnTypeSpec) UnmarshalReturnTypeSpec(data []byte, decod
 	returnTypeSpec.TypeSpec = typeSpec
 	returnTypeSpec.ObjectTypeSpec = objectSpec
 	return nil
+}
+
+func (returnTypeSpec *ReturnTypeSpec) MarshalReturnTypeSpec(encoder Encoder) ([]byte, error) {
+	if returnTypeSpec.TypeSpec != nil {
+		return encoder(returnTypeSpec.TypeSpec)
+	}
+	data, err := encoder(returnTypeSpec.ObjectTypeSpec)
+	if err != nil {
+		return nil, err
+	}
+	if returnTypeSpec.ObjectTypeSpecIsPlain {
+		var m map[string]any
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, err
+		}
+		m["plain"] = true
+		return json.Marshal(m)
+	}
+	return data, nil
+}
+
+func (returnTypeSpec ReturnTypeSpec) MarshalJSON() ([]byte, error) {
+	return returnTypeSpec.MarshalReturnTypeSpec(json.Marshal)
+}
+
+func (returnTypeSpec ReturnTypeSpec) MarshalYAML() ([]byte, error) {
+	return returnTypeSpec.MarshalReturnTypeSpec(yaml.Marshal)
 }
 
 func (returnTypeSpec *ReturnTypeSpec) UnmarshalJSON(inputJSON []byte) error {
@@ -1735,13 +1764,7 @@ func (funcSpec FunctionSpec) marshalFunctionSpec() (map[string]interface{}, erro
 	}
 
 	if funcSpec.ReturnType != nil {
-		if funcSpec.ReturnType.ObjectTypeSpec != nil {
-			data["outputs"] = funcSpec.ReturnType.ObjectTypeSpec
-		}
-
-		if funcSpec.ReturnType.TypeSpec != nil {
-			data["outputs"] = funcSpec.ReturnType.TypeSpec
-		}
+		data["outputs"] = funcSpec.ReturnType
 	}
 
 	// for backward-compat when we only specify the outputs object of the function
