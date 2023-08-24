@@ -1579,10 +1579,15 @@ func (returnTypeSpec *ReturnTypeSpec) marshalJSONLikeObject() (map[string]interf
 func (returnTypeSpec *ReturnTypeSpec) MarshalJSON() ([]byte, error) {
 	ts := returnTypeSpec
 	if ts.ObjectTypeSpec != nil {
-		return json.Marshal(returnTypeSpecObjectSerialForm{
+		form := returnTypeSpecObjectSerialForm{
 			ObjectTypeSpec: *ts.ObjectTypeSpec,
-			Plain:          ts.ObjectTypeSpecIsPlain,
-		})
+		}
+		if ts.ObjectTypeSpecIsPlain {
+			form.Plain = true
+		} else if len(ts.ObjectTypeSpec.Plain) > 0 {
+			form.Plain = ts.ObjectTypeSpec.Plain
+		}
+		return json.Marshal(form)
 	}
 	return json.Marshal(ts.TypeSpec)
 }
