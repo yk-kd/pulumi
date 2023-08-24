@@ -1033,15 +1033,21 @@ func TestBindDefaultInt(t *testing.T) {
 	}
 }
 
-func TestFunctionSpecToJSONTurnaround(t *testing.T) {
+func TestFunctionSpecToJSONAndYAMLTurnaround(t *testing.T) {
 	t.Parallel()
 
 	type testCase struct {
-		name  string
-		fspec FunctionSpec
+		name   string
+		fspec  FunctionSpec
+		serial any
+		// For legacy forms, after turning around through serde FunctionSpec will be
+		// normalized and not exactly equal to the original; tests will check against the
+		// normalized form if provided.
+		normalized *FunctionSpec
 	}
 
 	ots := &ObjectTypeSpec{
+		Type: "object",
 		Properties: map[string]PropertySpec{
 			"x": {
 				TypeSpec: TypeSpec{
@@ -1051,7 +1057,62 @@ func TestFunctionSpecToJSONTurnaround(t *testing.T) {
 		},
 	}
 
+	otsPlain := &ObjectTypeSpec{
+		Type: "object",
+		Properties: map[string]PropertySpec{
+			"x": {
+				TypeSpec: TypeSpec{
+					Type: "integer",
+				},
+			},
+		},
+		Plain: []string{"x"},
+	}
+
 	testCases := []testCase{
+		{
+			name: "legacy-outputs-form",
+			fspec: FunctionSpec{
+				Outputs: ots,
+			},
+			serial: map[string]interface{}{
+				"outputs": map[string]interface{}{
+					"properties": map[string]interface{}{
+						"x": map[string]interface{}{
+							"type": "integer",
+						},
+					},
+					"type": "object",
+				},
+			},
+			normalized: &FunctionSpec{
+				ReturnType: &ReturnTypeSpec{
+					ObjectTypeSpec: ots,
+				},
+			},
+		},
+		{
+			name: "legacy-outputs-form-plain-array",
+			fspec: FunctionSpec{
+				Outputs: otsPlain,
+			},
+			serial: map[string]interface{}{
+				"outputs": map[string]interface{}{
+					"properties": map[string]interface{}{
+						"x": map[string]interface{}{
+							"type": "integer",
+						},
+					},
+					"plain": []interface{}{"x"},
+					"type":  "object",
+				},
+			},
+			normalized: &FunctionSpec{
+				ReturnType: &ReturnTypeSpec{
+					ObjectTypeSpec: otsPlain,
+				},
+			},
+		},
 		{
 			name: "return-plain-integer",
 			fspec: FunctionSpec{
@@ -1060,6 +1121,12 @@ func TestFunctionSpecToJSONTurnaround(t *testing.T) {
 						Type:  "integer",
 						Plain: true,
 					},
+				},
+			},
+			serial: map[string]interface{}{
+				"outputs": map[string]interface{}{
+					"plain": true,
+					"type":  "integer",
 				},
 			},
 		},
@@ -1072,6 +1139,11 @@ func TestFunctionSpecToJSONTurnaround(t *testing.T) {
 					},
 				},
 			},
+			serial: map[string]interface{}{
+				"outputs": map[string]interface{}{
+					"type": "integer",
+				},
+			},
 		},
 		{
 			name: "return-plain-object",
@@ -1079,6 +1151,17 @@ func TestFunctionSpecToJSONTurnaround(t *testing.T) {
 				ReturnType: &ReturnTypeSpec{
 					ObjectTypeSpec:        ots,
 					ObjectTypeSpecIsPlain: true,
+				},
+			},
+			serial: map[string]interface{}{
+				"outputs": map[string]interface{}{
+					"plain": true,
+					"properties": map[string]interface{}{
+						"x": map[string]interface{}{
+							"type": "integer",
+						},
+					},
+					"type": "object",
 				},
 			},
 		},
@@ -1089,19 +1172,81 @@ func TestFunctionSpecToJSONTurnaround(t *testing.T) {
 					ObjectTypeSpec: ots,
 				},
 			},
+			serial: map[string]interface{}{
+				"outputs": map[string]interface{}{
+					"properties": map[string]interface{}{
+						"x": map[string]interface{}{
+							"type": "integer",
+						},
+					},
+					"type": "object",
+				},
+			},
+		},
+		{
+			name: "return-object-plain-array",
+			fspec: FunctionSpec{
+				ReturnType: &ReturnTypeSpec{
+					ObjectTypeSpec: otsPlain,
+				},
+			},
+			serial: map[string]interface{}{
+				"outputs": map[string]interface{}{
+					"plain": []interface{}{"x"},
+					"properties": map[string]interface{}{
+						"x": map[string]interface{}{
+							"type": "integer",
+						},
+					},
+					"type": "object",
+				},
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
+		fspec := tc.fspec
+		expectSerial := tc.serial
+		expectFSpec := fspec
+		if tc.normalized != nil {
+			expectFSpec = *tc.normalized
+		}
+
+		// Test JSON serialization and turnaround.
+		t.Run(tc.name+"/json", func(t *testing.T) {
 			t.Parallel()
-			bytes, err := json.Marshal(tc.fspec)
+			var serial any
+
+			bytes, err := json.MarshalIndent(fspec, "", "  ")
 			require.NoError(t, err)
+
+			err = json.Unmarshal(bytes, &serial)
+			require.NoError(t, err)
+			require.Equalf(t, expectSerial, serial, "Unexpected JSON serial form")
+
 			var actual FunctionSpec
 			err = json.Unmarshal(bytes, &actual)
 			require.NoError(t, err)
-			require.Equal(t, tc.fspec, actual)
+			require.Equal(t, expectFSpec, actual)
+		})
+
+		// Test YAML serialization and turnaround.
+		t.Run(tc.name+"/yaml", func(t *testing.T) {
+			t.Parallel()
+			var serial any
+
+			bytes, err := yaml.Marshal(fspec)
+			require.NoError(t, err)
+
+			err = yaml.Unmarshal(bytes, &serial)
+			require.NoError(t, err)
+			require.Equalf(t, expectSerial, serial, "Unexpected YAML serial form")
+
+			var actual FunctionSpec
+			err = yaml.Unmarshal(bytes, &actual)
+			require.NoError(t, err)
+			require.Equal(t, expectFSpec, actual)
 		})
 	}
 }
