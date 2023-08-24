@@ -1563,7 +1563,8 @@ type returnTypeSpecObjectSerialForm struct {
 	Plain any `json:"plain,omitempty"`
 }
 
-func (ts *ReturnTypeSpec) marshalJSONLikeObject() (map[string]interface{}, error) {
+func (returnTypeSpec *ReturnTypeSpec) marshalJSONLikeObject() (map[string]interface{}, error) {
+	ts := returnTypeSpec
 	bytes, err := ts.MarshalJSON()
 	if err != nil {
 		return nil, err
@@ -1575,7 +1576,8 @@ func (ts *ReturnTypeSpec) marshalJSONLikeObject() (map[string]interface{}, error
 	return r, nil
 }
 
-func (ts *ReturnTypeSpec) MarshalJSON() ([]byte, error) {
+func (returnTypeSpec *ReturnTypeSpec) MarshalJSON() ([]byte, error) {
+	ts := returnTypeSpec
 	if ts.ObjectTypeSpec != nil {
 		return json.Marshal(returnTypeSpecObjectSerialForm{
 			ObjectTypeSpec: *ts.ObjectTypeSpec,
@@ -1585,9 +1587,10 @@ func (ts *ReturnTypeSpec) MarshalJSON() ([]byte, error) {
 	return json.Marshal(ts.TypeSpec)
 }
 
-func (ts *ReturnTypeSpec) UnmarshalJSON(raw []byte) error {
+func (returnTypeSpec *ReturnTypeSpec) UnmarshalJSON(inputJSON []byte) error {
+	ts := returnTypeSpec
 	var m returnTypeSpecObjectSerialForm
-	err := json.Unmarshal(raw, &m)
+	err := json.Unmarshal(inputJSON, &m)
 	if err == nil {
 		if m.ObjectTypeSpec.Properties != nil {
 			ts.ObjectTypeSpec = &m.ObjectTypeSpec
@@ -1605,7 +1608,31 @@ func (ts *ReturnTypeSpec) UnmarshalJSON(raw []byte) error {
 		}
 	}
 
-	return json.Unmarshal(raw, &ts.TypeSpec)
+	return json.Unmarshal(inputJSON, &ts.TypeSpec)
+}
+
+// Deprecated.
+type Decoder func([]byte, interface{}) error
+
+// Deprecated.
+func (returnTypeSpec *ReturnTypeSpec) UnmarshalReturnTypeSpec(data []byte, decode Decoder) error {
+	var objectMap map[string]interface{}
+	if err := decode(data, &objectMap); err != nil {
+		return err
+	}
+	if len(objectMap) == 0 {
+		return nil
+	}
+	inputJSON, err := json.Marshal(objectMap)
+	if err != nil {
+		return err
+	}
+	return returnTypeSpec.UnmarshalJSON(inputJSON)
+}
+
+// Deprecated.
+func (returnTypeSpec *ReturnTypeSpec) UnmarshalYAML(inputYAML []byte) error {
+	return returnTypeSpec.UnmarshalReturnTypeSpec(inputYAML, yaml.Unmarshal)
 }
 
 // FunctionSpec is the serializable form of a function description.
