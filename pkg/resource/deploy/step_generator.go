@@ -17,6 +17,7 @@ package deploy
 import (
 	cryptorand "crypto/rand"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -1422,10 +1423,7 @@ func (sg *stepGenerator) ScheduleDeletes(deleteSteps []Step) []antichain {
 	// just backwards.
 	//
 	// All we have to do here is reverse the list and then our solution is correct.
-	for i := len(antichains)/2 - 1; i >= 0; i-- {
-		opp := len(antichains) - 1 - i
-		antichains[i], antichains[opp] = antichains[opp], antichains[i]
-	}
+	slices.Reverse(antichains)
 
 	return antichains
 }
