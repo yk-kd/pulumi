@@ -3,6 +3,8 @@ package lifecycletest
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -11,11 +13,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pulumi/pulumi/pkg/v3/backend"
 	"github.com/pulumi/pulumi/pkg/v3/display"
 	. "github.com/pulumi/pulumi/pkg/v3/engine"
 	"github.com/pulumi/pulumi/pkg/v3/resource/deploy"
 	"github.com/pulumi/pulumi/pkg/v3/resource/deploy/deploytest"
 	"github.com/pulumi/pulumi/pkg/v3/resource/deploy/providers"
+	"github.com/pulumi/pulumi/pkg/v3/secrets/b64"
 	"github.com/pulumi/pulumi/pkg/v3/util/cancel"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/config"
@@ -24,6 +28,64 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/result"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 )
+
+func copystruct[T any](t *testing.T, v T) T {
+	t.Helper()
+	r, err := copystructure.Copy(v)
+	require.NoError(t, err)
+	return r.(T)
+}
+
+func snapshotEqual(journal, manager *deploy.Snapshot) error {
+	// Just want to check the same operations and resources are counted, but order might be slightly different.
+	if journal == nil && manager == nil {
+		return nil
+	}
+	if journal == nil {
+		return fmt.Errorf("journal snapshot is nil")
+	}
+	if manager == nil {
+		return fmt.Errorf("manager snapshot is nil")
+	}
+
+	// Manifests and SecretsManagers are known to differ because we don't thread them through for the Journal code.
+
+	if len(journal.PendingOperations) != len(manager.PendingOperations) {
+		return fmt.Errorf("journal and manager pending operations differ")
+	}
+
+	for _, jop := range journal.PendingOperations {
+		found := false
+		for _, mop := range manager.PendingOperations {
+			if reflect.DeepEqual(jop, mop) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("journal and manager pending operations differ, %v not found in manager", jop)
+		}
+	}
+
+	if len(journal.Resources) != len(manager.Resources) {
+		return fmt.Errorf("journal and manager resources differ")
+	}
+
+	for _, jr := range journal.Resources {
+		found := false
+		for _, mr := range manager.Resources {
+			if reflect.DeepEqual(jr, mr) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("journal and manager resources differ, %v not found in manager", jr)
+		}
+	}
+
+	return nil
+}
 
 type updateInfo struct {
 	project workspace.Project
@@ -98,11 +160,18 @@ func (op TestOp) runWithContext(
 
 	events := make(chan Event)
 	journal := NewJournal()
+	persister := &backend.InMemoryPersister{}
+	secretsManager := b64.NewBase64SecretsManager()
+	snapshotManager := backend.NewSnapshotManager(persister, secretsManager, target.Snapshot)
+
+	combined := &CombinedManager{
+		Managers: []SnapshotManager{journal, snapshotManager},
+	}
 
 	ctx := &Context{
 		Cancel:          cancelCtx,
 		Events:          events,
-		SnapshotManager: journal,
+		SnapshotManager: combined,
 		BackendClient:   backendClient,
 	}
 
@@ -128,7 +197,7 @@ func (op TestOp) runWithContext(
 	plan, _, res := op(info, ctx, updateOpts, dryRun)
 	close(events)
 	wg.Wait()
-	contract.IgnoreClose(journal)
+	closeErr := combined.Close()
 
 	if validate != nil {
 		res = validate(project, target, journal.Entries(), firedEvents, res)
@@ -137,12 +206,19 @@ func (op TestOp) runWithContext(
 		return plan, nil, res
 	}
 
+	// Even if the deployment failed we need to know if the snapshots were valid
 	snap, err := journal.Snap(target.Snapshot)
-	if res == nil && err != nil {
-		res = result.FromError(err)
-	} else if res == nil && snap != nil {
-		res = result.WrapIfNonNil(snap.VerifyIntegrity())
+	// journal.Snap internally verifies integrity
+	if persister.Snap != nil {
+		err = errors.Join(err, persister.Snap.VerifyIntegrity())
 	}
+	// Verify the saved snapshot from SnapshotManger is the same(ish) as that from the Journal
+	err = errors.Join(err, closeErr, snapshotEqual(snap, persister.Snap))
+
+	if err != nil {
+		res = result.Merge(res, result.FromError(err))
+	}
+
 	return nil, snap, res
 }
 
