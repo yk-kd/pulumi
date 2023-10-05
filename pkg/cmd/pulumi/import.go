@@ -83,7 +83,7 @@ func makeImportFileFromResourceList(resources []plugin.ResourceImport) (importFi
 	for i, res := range resources {
 		specs[i] = importSpec{
 			Type:              tokens.Type(res.Type),
-			Name:              tokens.QName(res.Name),
+			Name:              res.Name,
 			ID:                resource.ID(res.ID),
 			Version:           res.Version,
 			PluginDownloadURL: res.PluginDownloadURL,
@@ -104,7 +104,7 @@ func makeImportFile(
 	nameTable := map[string]resource.URN{}
 	res := importSpec{
 		Type:       tokens.Type(typ),
-		Name:       tokens.QName(name),
+		Name:       name,
 		ID:         resource.ID(id),
 		Version:    version,
 		Properties: properties,
@@ -143,14 +143,14 @@ func makeImportFile(
 }
 
 type importSpec struct {
-	Type              tokens.Type  `json:"type"`
-	Name              tokens.QName `json:"name"`
-	ID                resource.ID  `json:"id"`
-	Parent            string       `json:"parent"`
-	Provider          string       `json:"provider"`
-	Version           string       `json:"version"`
-	PluginDownloadURL string       `json:"pluginDownloadUrl"`
-	Properties        []string     `json:"properties"`
+	Type              tokens.Type `json:"type"`
+	Name              string      `json:"name"`
+	ID                resource.ID `json:"id"`
+	Parent            string      `json:"parent"`
+	Provider          string      `json:"provider"`
+	Version           string      `json:"version"`
+	PluginDownloadURL string      `json:"pluginDownloadUrl"`
+	Properties        []string    `json:"properties"`
 }
 
 type importFile struct {
@@ -234,13 +234,13 @@ func parseImportFile(f importFile, protectResources bool) ([]deploy.Import, impo
 		errs = multierror.Append(errs, fmt.Errorf(format, args...))
 	}
 
-	makeUnique, checkAmbiguous := func() (func(int, tokens.QName) tokens.QName, func(tokens.QName) bool) {
+	makeUnique, checkAmbiguous := func() (func(int, string) string, func(string) bool) {
 		// Track used resource names.
-		takenNames := map[tokens.QName]struct{}{}
+		takenNames := map[string]struct{}{}
 		// Track indexes that are not unique and need to be made unique.
 		duplicateIndexes := map[int]struct{}{}
 		// Track parent/provider/etc references that are ambiguous when referenced.
-		ambiguousNames := map[tokens.QName]struct{}{}
+		ambiguousNames := map[string]struct{}{}
 		for i, spec := range f.Resources {
 			if _, exists := takenNames[spec.Name]; exists {
 				duplicateIndexes[i] = struct{}{}
@@ -249,11 +249,11 @@ func parseImportFile(f importFile, protectResources bool) ([]deploy.Import, impo
 			// Prepopulate already taken names first to avoid using them in makeUnique.
 			takenNames[spec.Name] = struct{}{}
 		}
-		checkAmbiguous := func(name tokens.QName) bool {
+		checkAmbiguous := func(name string) bool {
 			_, isAmbiguous := ambiguousNames[name]
 			return isAmbiguous
 		}
-		makeUnique := func(i int, name tokens.QName) tokens.QName {
+		makeUnique := func(i int, name string) string {
 			if _, isDuplicate := duplicateIndexes[i]; !isDuplicate {
 				return name
 			}
@@ -264,7 +264,7 @@ func parseImportFile(f importFile, protectResources bool) ([]deploy.Import, impo
 					takenNames[newName] = struct{}{}
 					return newName
 				}
-				newName = tokens.QName(fmt.Sprintf("%s_%d", name, suffix))
+				newName = fmt.Sprintf("%s_%d", name, suffix)
 			}
 		}
 		return makeUnique, checkAmbiguous
@@ -292,7 +292,7 @@ func parseImportFile(f importFile, protectResources bool) ([]deploy.Import, impo
 		}
 
 		if spec.Parent != "" {
-			if checkAmbiguous(tokens.QName(spec.Parent)) {
+			if checkAmbiguous(spec.Parent) {
 				pusherrf("%v has an ambiguous parent",
 					describeResource(i, spec))
 			}
@@ -306,7 +306,7 @@ func parseImportFile(f importFile, protectResources bool) ([]deploy.Import, impo
 		}
 
 		if spec.Provider != "" {
-			if checkAmbiguous(tokens.QName(spec.Provider)) {
+			if checkAmbiguous(spec.Provider) {
 				pusherrf("%v has an ambiguous provider",
 					describeResource(i, spec))
 			}
