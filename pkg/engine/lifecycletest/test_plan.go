@@ -3,6 +3,7 @@ package lifecycletest
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sync"
 	"testing"
@@ -128,22 +129,38 @@ func (op TestOp) runWithContext(
 	plan, _, opErr := op(info, ctx, updateOpts, dryRun)
 	close(events)
 	wg.Wait()
-	contract.IgnoreClose(journal)
+	closeErr := journal.Close()
 
 	if validate != nil {
 		opErr = validate(project, target, journal.Entries(), firedEvents, opErr)
 	}
+	errs := []error{opErr, closeErr}
 	if dryRun {
-		return plan, nil, opErr
+		return plan, nil, errors.Join(errs...)
 	}
 
-	snap, err := journal.Snap(target.Snapshot)
-	if opErr == nil && err != nil {
-		opErr = err
-	} else if opErr == nil && snap != nil {
-		opErr = snap.VerifyIntegrity()
+	entries := journal.Entries()
+	// Check that each possible snapshot we could have created is valid
+	var snap *deploy.Snapshot
+	for i := 0; i <= len(entries); i++ {
+		var err error
+		snap, err = entries[0:i].Snap(target.Snapshot)
+		if err != nil {
+			// if any snapshot fails to create just return this error, don't keep going
+			errs = append(errs, err)
+			snap = nil
+			break
+		}
+		err = snap.VerifyIntegrity()
+		if err != nil {
+			// Likewise as soon as one snapshot fails to validate stop checking
+			errs = append(errs, err)
+			snap = nil
+			break
+		}
 	}
-	return nil, snap, opErr
+
+	return nil, snap, errors.Join(errs...)
 }
 
 type TestStep struct {
