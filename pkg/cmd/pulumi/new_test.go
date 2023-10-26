@@ -854,17 +854,17 @@ func TestValidateStackRefAndProjectName(t *testing.T) {
 			switch len(parts) {
 			case 1:
 				return &backend.MockStackReference{
-					NameV: tokens.Name(parts[0]),
+					NameV: tokens.MustParseStackName(parts[0]),
 				}, nil
 			case 2:
 				return &backend.MockStackReference{
 					ProjectV: tokens.Name(parts[0]),
-					NameV:    tokens.Name(parts[1]),
+					NameV:    tokens.MustParseStackName(parts[1]),
 				}, nil
 			case 3:
 				return &backend.MockStackReference{
 					ProjectV: tokens.Name(parts[1]),
-					NameV:    tokens.Name(parts[2]),
+					NameV:    tokens.MustParseStackName(parts[2]),
 				}, nil
 
 			default:

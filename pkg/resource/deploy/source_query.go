@@ -158,7 +158,7 @@ func runLangPlugin(src *querySource) error {
 
 	var name, organization string
 	if src.runinfo.Target != nil {
-		name = string(src.runinfo.Target.Name)
+		name = src.runinfo.Target.Name.String()
 		organization = string(src.runinfo.Target.Organization)
 	}
 
@@ -273,7 +273,7 @@ func newQueryResourceMonitor(
 
 	var name string
 	if runinfo.Target != nil {
-		name = string(runinfo.Target.Name)
+		name = runinfo.Target.Name.String()
 	}
 
 	queryResmon.callInfo = plugin.CallInfo{

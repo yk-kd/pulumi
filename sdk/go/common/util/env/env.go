@@ -28,8 +28,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/cmdutil"
 )
 
 // Store holds a collection of key, value? pairs.
@@ -287,7 +285,7 @@ func (b BoolValue) Value() bool {
 	if !ok {
 		return false
 	}
-	return cmdutil.IsTruthy(v)
+	return v == "1" || strings.EqualFold(v, "true")
 }
 
 // An integer retrieved from the environment.

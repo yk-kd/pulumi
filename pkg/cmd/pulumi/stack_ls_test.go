@@ -81,7 +81,7 @@ type mockStackSummary struct {
 }
 
 func (mss *mockStackSummary) Name() backend.StackReference {
-	name := tokens.Name(mss.name)
+	name := tokens.MustParseStackName(mss.name)
 	return &backend.MockStackReference{
 		NameV:               name,
 		FullyQualifiedNameV: name.Q(),

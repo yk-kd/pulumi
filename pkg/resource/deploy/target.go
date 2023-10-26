@@ -22,7 +22,7 @@ import (
 
 // Target represents information about a deployment target.
 type Target struct {
-	Name         tokens.Name      // the target stack name.
+	Name         tokens.StackName // the target stack name.
 	Organization tokens.Name      // the target organization name (if any).
 	Config       config.Map       // optional configuration key/value pairs.
 	Decrypter    config.Decrypter // decrypter for secret configuration values.

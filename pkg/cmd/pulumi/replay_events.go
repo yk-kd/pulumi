@@ -26,6 +26,7 @@ import (
 	"github.com/pulumi/pulumi/pkg/v3/backend/display"
 	"github.com/pulumi/pulumi/pkg/v3/engine"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/cmdutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 )
@@ -106,7 +107,7 @@ func newReplayEventsCmd() *cobra.Command {
 			}
 
 			go display.ShowEvents(
-				"replay", action, "replay", "replay", "",
+				"replay", action, tokens.MustParseStackName("replay"), "replay", "",
 				eventChannel, doneChannel, displayOpts, preview)
 
 			for _, e := range events {

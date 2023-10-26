@@ -364,7 +364,7 @@ type programGeneratorFunc func(
 ) (map[string][]byte, hcl.Diagnostics, error)
 
 func generateImportedDefinitions(ctx *plugin.Context,
-	out io.Writer, stackName tokens.Name, projectName tokens.PackageName,
+	out io.Writer, stackName tokens.StackName, projectName tokens.PackageName,
 	snap *deploy.Snapshot, programGenerator programGeneratorFunc, names importer.NameTable,
 	imports []deploy.Import, protectResources bool,
 ) (bool, error) {

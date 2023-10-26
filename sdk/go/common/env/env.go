@@ -97,3 +97,14 @@ var (
 var (
 	AIServiceEndpoint = env.String("AI_SERVICE_ENDPOINT", "Endpoint for Pulumi AI service")
 )
+
+var DisableValidation = env.Bool(
+	"DISABLE_VALIDATION",
+	`Disables format validation of system inputs.
+
+Currently this disables validation of the following formats:
+	- Stack names
+
+This should only be used in cases where current data does not conform to the format and either cannot be migrated
+without using the system itself, or show that the validation is too strict. Over time entries in the list above will be
+removed and enforced to be validated.`)

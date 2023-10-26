@@ -45,6 +45,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/plugin"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/cmdutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
@@ -100,7 +101,7 @@ func TestCloudSnapshotPersisterUseOfDiffProtocol(t *testing.T) {
 	stackID := client.StackIdentifier{
 		Owner:   "owner",
 		Project: "project",
-		Stack:   "stack",
+		Stack:   tokens.MustParseStackName("stack"),
 	}
 	updateID := "update-id"
 

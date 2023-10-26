@@ -249,7 +249,7 @@ func (b *cloudBackend) getTarget(ctx context.Context, secretsProvider secrets.Pr
 	}
 
 	return &deploy.Target{
-		Name:         tokens.Name(stackID.Stack),
+		Name:         stackID.Stack,
 		Organization: tokens.Name(stackID.Owner),
 		Config:       cfg,
 		Decrypter:    dec,

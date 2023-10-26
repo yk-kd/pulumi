@@ -65,7 +65,7 @@ func TestGetStackConfigurationDoesNotGetLatestConfiguration(t *testing.T) {
 			RefF: func() backend.StackReference {
 				return &backend.MockStackReference{
 					StringV:             "org/project/name",
-					NameV:               "name",
+					NameV:               tokens.MustParseStackName("name"),
 					ProjectV:            "project",
 					FullyQualifiedNameV: tokens.QName("org/project/name"),
 				}
@@ -94,7 +94,7 @@ func TestGetStackConfigurationOrLatest(t *testing.T) {
 			RefF: func() backend.StackReference {
 				return &backend.MockStackReference{
 					StringV:             "org/project/name",
-					NameV:               "name",
+					NameV:               tokens.MustParseStackName("name"),
 					ProjectV:            "project",
 					FullyQualifiedNameV: tokens.QName("org/project/name"),
 				}
