@@ -22,7 +22,7 @@ jobs:
             event-type: upgrade-bridge
             client-payload: |-
               {
-                 "target-pulumi-version": ${{ toJSON( github.sha ) }},
+                 "target-pulumi-version": ${{ toJSON( github.event.pull_request.head.sha ) }},
                  "target-bridge-version": "",
                  "pr-reviewers": ${{ toJSON( github.triggering_actor || 't0yv0' ) }},
                  "pr-description": "This is a downstream codegen test for ${{ github.run_id }} on pulumi/pulumi#${{ github.event.pull_request.number }}.",
